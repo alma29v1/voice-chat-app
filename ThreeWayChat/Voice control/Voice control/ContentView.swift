@@ -62,7 +62,7 @@ struct ContentView: View {
     @State private var webSocket: URLSessionWebSocketTask?
     @State private var isConnected = false
     @State private var messages: [Message] = []
-    @State private var serverIP = "347be302-059c-492a-90fa-6d7560469c87-00-2sc0ut3ttu7zz.riker.replit.dev:5000" // Your cloud server
+    @State private var serverIP = "347be302-059c-492a-90fa-6d7560469c87-00-2sc0ut3ttu7zz.riker.replit.dev" // Your cloud server
     @State private var showingServerConfig = false
     @State private var connectionStatus = "Disconnected"
     
