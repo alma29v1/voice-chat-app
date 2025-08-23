@@ -174,8 +174,11 @@ async def websocket_phone(websocket: WebSocket):
     await manager.connect_phone(websocket)
     try:
         while True:
+            logger.info("Phone WebSocket: Waiting for message...")
             data = await websocket.receive_text()
+            logger.info(f"Phone WebSocket: Received data: {data}")
             message_data = json.loads(data)
+            logger.info(f"Phone WebSocket: Parsed message: {message_data}")
             
             # Create message object
             message = Message(
