@@ -4,7 +4,7 @@
 class ThreeWayChatExtension {
     constructor() {
         this.websocket = null;
-        this.serverIP = "192.168.1.100"; // Default IP, should be configured
+        this.serverIP = "347be302-059c-492a-90fa-6d7560469c87-00-2sc0ut3ttu7zz.riker.replit.dev"; // Your cloud server
         this.isConnected = false;
         this.messageHistory = [];
         this.autoRespond = true;
@@ -34,7 +34,7 @@ class ThreeWayChatExtension {
     async connectToServer() {
         try {
             const WebSocket = require('ws');
-            const url = `ws://${this.serverIP}:8000/ws/cursor`;
+            const url = `wss://${this.serverIP}/ws/cursor`;
             
             this.websocket = new WebSocket(url);
             

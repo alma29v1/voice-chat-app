@@ -34,7 +34,7 @@ struct ContentView: View {
     @State private var webSocket: URLSessionWebSocketTask?
     @State private var isConnected = false
     @State private var messages: [Message] = []
-    @State private var serverIP = "192.168.84.130" // Your server IP
+    @State private var serverIP = "347be302-059c-492a-90fa-6d7560469c87-00-2sc0ut3ttu7zz.riker.replit.dev" // Your cloud server
     @State private var showingServerConfig = false
     @State private var connectionStatus = "Disconnected"
     
@@ -244,7 +244,7 @@ struct ContentView: View {
     }
     
     private func connectToServer() {
-        let url = URL(string: "ws://\(serverIP):8000/ws/phone")!
+        let url = URL(string: "wss://\(serverIP)/ws/phone")!
         let session = URLSession(configuration: .default)
         webSocket = session.webSocketTask(with: url)
         
