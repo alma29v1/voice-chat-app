@@ -360,7 +360,7 @@ async def get_conversation_history():
 
 if __name__ == "__main__":
     # Get port from environment (for cloud deployment)
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 5000))
     
     print(f"🚀 ThreeWayChat Cloud Server starting...")
     print(f"📱 Phone should connect to: ws://your-domain.com/ws/phone")
