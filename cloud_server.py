@@ -113,7 +113,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-async def call_grok_api(message: str, context: str = "") -> str:
+def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
     
     # Check if Grok API key is set
