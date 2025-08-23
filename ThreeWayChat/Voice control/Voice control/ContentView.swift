@@ -127,7 +127,7 @@ struct ContentView: View {
                             }
                             .padding()
                         }
-                        .onChange(of: messages.count) { _ in
+                        .onChange(of: messages.count) { _, _ in
                             if let lastMessage = messages.last {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     proxy.scrollTo(lastMessage.id, anchor: .bottom)
@@ -163,6 +163,9 @@ struct ContentView: View {
                                     .foregroundColor(.white)
                             }
                         }
+                        .scaleEffect(isRecording ? 1.1 : 1.0)
+                        .animation(.easeInOut(duration: 0.2), value: isRecording)
+                        .disabled(!isConnected || isGrokSpeaking)
                         
                         // Show transcribed text while recording
                         if isRecording && !transcribedText.isEmpty {
@@ -186,10 +189,6 @@ struct ContentView: View {
                             .background(Color.purple.opacity(0.1))
                             .cornerRadius(10)
                         }
-                    }
-                    .scaleEffect(isRecording ? 1.1 : 1.0)
-                    .animation(.easeInOut(duration: 0.2), value: isRecording)
-                    .disabled(!isConnected || isGrokSpeaking)
                         
                         // Status indicators
                         HStack(spacing: 20) {
