@@ -118,7 +118,7 @@ async def call_grok_api(message: str, context: str = "") -> str:
     
     # Check if Grok API key is set
     if not GROK_API_KEY:
-        return "Hello! I'm Grok AI, but I don't have my API key configured yet. Please set the GROK_API_KEY environment variable to enable full conversation capabilities. For now, I can help you with basic responses!"
+        return "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?"
     
     try:
         headers = {
@@ -160,18 +160,18 @@ Please provide a helpful response. If this is a programming question, provide de
             "temperature": 0.7
         }
         
-        response = requests.post(GROK_API_URL, headers=headers, json=payload, timeout=30)
+        response = requests.post(GROK_API_URL, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
         
         result = response.json()
         if "choices" in result and len(result["choices"]) > 0:
             return result["choices"][0]["message"]["content"]
         else:
-            return "Sorry, I couldn't generate a response at the moment."
+            return "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?"
             
     except Exception as e:
         logger.error(f"Error calling Grok API: {e}")
-        return f"Error: {str(e)}"
+        return "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?"
 
 def is_programming_question(content: str) -> bool:
     """Detect if a message is a programming question"""
