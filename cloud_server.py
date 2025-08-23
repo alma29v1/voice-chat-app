@@ -192,32 +192,56 @@ async def websocket_phone(websocket: WebSocket):
             manager.add_to_knowledge_base(message)
             
             # Broadcast to cursor
-            await manager.send_to_cursor({
-                "type": "message",
-                "sender": "phone",
-                "content": message.content,
-                "message_type": message.message_type,
-                "timestamp": message.timestamp
-            })
+            logger.info("Broadcasting to cursor")
+            try:
+                await manager.send_to_cursor({
+                    "type": "message",
+                    "sender": "phone",
+                    "content": message.content,
+                    "message_type": message.message_type,
+                    "timestamp": message.timestamp
+                })
+                logger.info("Cursor broadcast sent successfully")
+            except Exception as e:
+                logger.error(f"Error broadcasting to cursor: {e}")
             
             # Send immediate response for testing
             logger.info("Sending immediate response")
             
             # Send processing indicator
-            await manager.send_to_phone({
-                "type": "system",
-                "content": "Processing with Grok AI...",
-                "timestamp": manager.get_timestamp()
-            })
+            logger.info("Sending processing indicator")
+            try:
+                await manager.send_to_phone({
+                    "type": "system",
+                    "content": "Processing with Grok AI...",
+                    "timestamp": manager.get_timestamp()
+                })
+                logger.info("Processing indicator sent successfully")
+            except Exception as e:
+                logger.error(f"Error sending processing indicator: {e}")
             
             # Send Grok response immediately
-            await manager.send_to_phone({
-                "type": "message",
-                "sender": "grok",
-                "content": "Hello! I'm Grok AI. I can hear you! This is a test response to make sure the conversation is working.",
-                "message_type": "text",
-                "timestamp": manager.get_timestamp()
-            })
+            logger.info("About to send Grok response")
+            try:
+                await manager.send_to_phone({
+                    "type": "message",
+                    "sender": "grok",
+                    "content": "Hello! I'm Grok AI. I can hear you! This is a test response to make sure the conversation is working.",
+                    "message_type": "text",
+                    "timestamp": manager.get_timestamp()
+                })
+                logger.info("Grok response sent successfully")
+            except Exception as e:
+                logger.error(f"Error sending Grok response: {e}")
+                # Try to send a simple error message
+                try:
+                    await manager.send_to_phone({
+                        "type": "system",
+                        "content": f"Error: {str(e)}",
+                        "timestamp": manager.get_timestamp()
+                    })
+                except Exception as e2:
+                    logger.error(f"Failed to send error message: {e2}")
                 
     except WebSocketDisconnect:
         await manager.disconnect_phone()

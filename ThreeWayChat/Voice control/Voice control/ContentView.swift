@@ -77,6 +77,38 @@ struct ContentView: View {
     @State private var grokResponse = ""
     @State private var speechDelegate: SpeechDelegate?
     
+    // MARK: - Audio Session Setup
+    private func setupAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            
+            // Configure for background audio playback
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [
+                .allowBluetooth, 
+                .allowBluetoothA2DP, 
+                .defaultToSpeaker, 
+                .mixWithOthers, 
+                .allowAirPlay
+            ])
+            
+            try audioSession.setActive(true)
+            
+            // Enable background audio capabilities
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [
+                .allowBluetooth, 
+                .allowBluetoothA2DP, 
+                .defaultToSpeaker, 
+                .mixWithOthers, 
+                .allowAirPlay
+            ])
+            
+            print("✅ Audio session configured for background playback")
+            
+        } catch {
+            print("❌ Failed to configure audio session: \(error)")
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -87,10 +119,15 @@ struct ContentView: View {
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
+        }
+        .navigationViewStyle(StackNavigationViewStyle())
+        .onAppear {
+            setupAudioSession()
+        }
                 
                 VStack(spacing: 0) {
-                    // Header with connection status
-                    VStack(spacing: 15) {
+                    // Header with connection status - optimized for landscape
+                    VStack(spacing: 10) {
                         HStack {
                             Button(action: { showingServerConfig = true }) {
                                 Image(systemName: "gear")
@@ -99,7 +136,7 @@ struct ContentView: View {
                             }
                             Spacer()
                             Text("Three-Way Chat")
-                                .font(.title)
+                                .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
                             Spacer()
@@ -111,17 +148,32 @@ struct ContentView: View {
                         }
                         .padding(.horizontal)
                         
-                        // Three-Way Connection Status
-                        HStack(spacing: 20) {
+                        // Background Audio Indicator
+                        HStack {
+                            Image(systemName: "speaker.wave.3.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                            Text("Background Audio Enabled")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                        
+                        // Three-Way Connection Status - compact for landscape
+                        HStack(spacing: 15) {
                             // Phone/User Status
                             VStack(spacing: 8) {
                                 ZStack {
                                     Circle()
                                         .fill(isConnected ? Color.blue : Color.gray)
-                                        .frame(width: 50, height: 50)
+                                        .frame(width: 40, height: 40)
                                     
                                     Image(systemName: "person.fill")
-                                        .font(.title2)
+                                        .font(.title3)
                                         .foregroundColor(.white)
                                 }
                                 
@@ -150,10 +202,10 @@ struct ContentView: View {
                                 ZStack {
                                     Circle()
                                         .fill(isConnected ? Color.purple : Color.gray)
-                                        .frame(width: 50, height: 50)
+                                        .frame(width: 40, height: 40)
                                     
                                     Image(systemName: "brain.head.profile")
-                                        .font(.title2)
+                                        .font(.title3)
                                         .foregroundColor(.white)
                                 }
                                 
@@ -182,10 +234,10 @@ struct ContentView: View {
                                 ZStack {
                                     Circle()
                                         .fill(isConnected ? Color.green : Color.gray)
-                                        .frame(width: 50, height: 50)
+                                        .frame(width: 40, height: 40)
                                     
                                     Image(systemName: "cursorarrow.rays")
-                                        .font(.title2)
+                                        .font(.title3)
                                         .foregroundColor(.white)
                                 }
                                 
