@@ -20,8 +20,14 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import configuration
+try:
+    from config import GROK_API_KEY
+except ImportError:
+    GROK_API_KEY = ""
+
 # Grok AI Configuration
-GROK_API_KEY = os.getenv("GROK_API_KEY", "")  # Set via environment variable
+GROK_API_KEY = GROK_API_KEY or os.getenv("GROK_API_KEY", "")  # Use config file or environment variable
 GROK_API_URL = "https://api.x.ai/v1/chat/completions"
 GROK_MODEL = "grok-4-latest"
 
