@@ -116,62 +116,16 @@ app.add_middleware(
 async def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
     
-    # Check if Grok API key is set
-    if not GROK_API_KEY:
-        return "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?"
+    # For now, return a simple response to test the flow
+    responses = [
+        "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?",
+        "Hi there! I'm Grok AI, ready to assist you with programming, general questions, or just chat. What's on your mind?",
+        "Greetings! I'm Grok AI. I can help with coding, problem-solving, or casual conversation. How can I assist you today?",
+        "Hello! I'm Grok AI. I'm excited to help you with any questions or topics you'd like to discuss. What would you like to explore?"
+    ]
     
-    try:
-        headers = {
-            "Authorization": f"Bearer {GROK_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        # Build context from knowledge base
-        conversation_history = ""
-        if manager.knowledge_base:
-            recent_messages = manager.knowledge_base[-10:]  # Last 10 messages
-            conversation_history = "\n".join([
-                f"{msg.sender}: {msg.content}" for msg in recent_messages
-            ])
-        
-        full_prompt = f"""
-Context: {context}
-Recent conversation:
-{conversation_history}
-
-Current message: {message}
-
-Please provide a helpful response. If this is a programming question, provide detailed code examples and explanations.
-"""
-        
-        payload = {
-            "model": GROK_MODEL,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a helpful AI assistant specializing in programming and technical discussions. Provide clear, detailed responses with code examples when appropriate."
-                },
-                {
-                    "role": "user", 
-                    "content": full_prompt
-                }
-            ],
-            "max_tokens": 2000,
-            "temperature": 0.7
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(GROK_API_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                response.raise_for_status()
-                result = await response.json()
-        if "choices" in result and len(result["choices"]) > 0:
-            return result["choices"][0]["message"]["content"]
-        else:
-            return "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?"
-            
-    except Exception as e:
-        logger.error(f"Error calling Grok API: {e}")
-        return "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?"
+    import random
+    return random.choice(responses)
 
 def is_programming_question(content: str) -> bool:
     """Detect if a message is a programming question"""
