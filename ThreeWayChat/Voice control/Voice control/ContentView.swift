@@ -471,7 +471,7 @@ struct ContentView: View {
     }
     
     private func connectToServer() {
-        let url = URL(string: "ws://\(serverIP)/ws/phone")!
+        let url = URL(string: "wss://\(serverIP)/ws/phone")!
         let session = URLSession(configuration: .default)
         webSocket = session.webSocketTask(with: url)
         
