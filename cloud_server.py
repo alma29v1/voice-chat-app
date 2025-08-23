@@ -197,8 +197,8 @@ async def websocket_phone(websocket: WebSocket):
                 "timestamp": message.timestamp
             })
             
-            # Route ALL messages to Grok for a conversational experience
-            logger.info("Routing message to Grok AI")
+            # Send immediate response for testing
+            logger.info("Sending immediate response")
             
             # Send processing indicator
             await manager.send_to_phone({
@@ -207,29 +207,13 @@ async def websocket_phone(websocket: WebSocket):
                 "timestamp": manager.get_timestamp()
             })
             
-            logger.info("Calling Grok API...")
-            # Get Grok response
-            grok_response = await call_grok_api(message.content, "Conversation from phone")
-            logger.info(f"Grok response: {grok_response[:50]}...")
-            
-            # Create Grok response message
-            grok_message = Message(
-                sender="grok",
-                content=grok_response,
-                message_type="text",
-                timestamp=manager.get_timestamp()
-            )
-            
-            # Add to knowledge base
-            manager.add_to_knowledge_base(grok_message)
-            
-            # Send Grok response to phone
+            # Send Grok response immediately
             await manager.send_to_phone({
                 "type": "message",
                 "sender": "grok",
-                "content": grok_response,
+                "content": "Hello! I'm Grok AI. I can hear you! This is a test response to make sure the conversation is working.",
                 "message_type": "text",
-                "timestamp": grok_message.timestamp
+                "timestamp": manager.get_timestamp()
             })
                 
     except WebSocketDisconnect:
