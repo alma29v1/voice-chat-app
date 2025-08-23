@@ -13,7 +13,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-import requests
+import aiohttp
 from datetime import datetime
 
 # Configure logging
@@ -113,7 +113,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def call_grok_api(message: str, context: str = "") -> str:
+async def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
     
     # Check if Grok API key is set
@@ -160,10 +160,10 @@ Please provide a helpful response. If this is a programming question, provide de
             "temperature": 0.7
         }
         
-        response = requests.post(GROK_API_URL, headers=headers, json=payload, timeout=10)
-        response.raise_for_status()
-        
-        result = response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(GROK_API_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                response.raise_for_status()
+                result = await response.json()
         if "choices" in result and len(result["choices"]) > 0:
             return result["choices"][0]["message"]["content"]
         else:
@@ -250,7 +250,7 @@ async def websocket_phone(websocket: WebSocket):
             })
             
             # Get Grok response
-            grok_response = call_grok_api(message.content, "Conversation from phone")
+            grok_response = await call_grok_api(message.content, "Conversation from phone")
             
             # Create Grok response message
             grok_message = Message(
