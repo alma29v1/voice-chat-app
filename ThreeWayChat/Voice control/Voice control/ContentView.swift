@@ -8,6 +8,34 @@
 import SwiftUI
 import Speech
 import AVFoundation
+import AVFAudio
+
+extension Date {
+    var iso8601: String {
+        let formatter = ISO8601DateFormatter()
+        return formatter.string(from: self)
+    }
+}
+
+class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    @Binding var isGrokSpeaking: Bool
+    
+    init(isGrokSpeaking: Binding<Bool>) {
+        self._isGrokSpeaking = isGrokSpeaking
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async {
+            self.isGrokSpeaking = false
+        }
+    }
+    
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async {
+            self.isGrokSpeaking = false
+        }
+    }
+}
 
 struct Message: Identifiable, Codable {
     let id = UUID()
@@ -37,6 +65,16 @@ struct ContentView: View {
     @State private var serverIP = "347be302-059c-492a-90fa-6d7560469c87-00-2sc0ut3ttu7zz.riker.replit.dev:5000" // Your cloud server
     @State private var showingServerConfig = false
     @State private var connectionStatus = "Disconnected"
+    
+    // Speech recognition state
+    @State private var speechRecognizer: SFSpeechRecognizer?
+    @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    @State private var audioEngine: AVAudioEngine?
+    
+    // Text-to-speech state
+    @State private var speechSynthesizer = AVSpeechSynthesizer()
+    @State private var isGrokSpeaking = false
+    @State private var grokResponse = ""
     
     var body: some View {
         NavigationView {
@@ -124,9 +162,32 @@ struct ContentView: View {
                                     .foregroundColor(.white)
                             }
                         }
+                        
+                        // Show transcribed text while recording
+                        if isRecording && !transcribedText.isEmpty {
+                            Text("Transcribing: \(transcribedText)")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal)
+                        }
+                        
+                        // Show when Grok is speaking
+                        if isGrokSpeaking {
+                            HStack {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .foregroundColor(.purple)
+                                Text("Grok is speaking...")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                            .background(Color.purple.opacity(0.1))
+                            .cornerRadius(10)
+                        }
                         .scaleEffect(isRecording ? 1.1 : 1.0)
                         .animation(.easeInOut(duration: 0.2), value: isRecording)
-                        .disabled(!isConnected)
+                        .disabled(!isConnected || isGrokSpeaking)
                         
                         // Status indicators
                         HStack(spacing: 20) {
@@ -140,6 +201,12 @@ struct ContentView: View {
                                 title: "Recording",
                                 isActive: isRecording,
                                 icon: "mic.fill"
+                            )
+                            
+                            StatusIndicator(
+                                title: "Grok Speaking",
+                                isActive: isGrokSpeaking,
+                                icon: "speaker.wave.2.fill"
                             )
                         }
                     }
@@ -195,7 +262,20 @@ struct ContentView: View {
         
         // Send transcribed text to server
         if !transcribedText.isEmpty {
+            print("Sending message to server: \(transcribedText)")
             sendMessageToServer(transcribedText)
+            
+            // Add user message to the conversation
+            let userMessage = Message(
+                sender: "phone",
+                content: transcribedText,
+                messageType: "text",
+                timestamp: Date().iso8601
+            )
+            messages.append(userMessage)
+            
+            // Clear transcribed text
+            transcribedText = ""
         }
     }
     
@@ -221,10 +301,38 @@ struct ContentView: View {
                 }
             }
         }
+        
+        // Store the recognizer for stopping later
+        self.speechRecognizer = speechRecognizer
+        self.recognitionRequest = request
     }
     
     private func stopSpeechRecognition() {
         // Stop speech recognition
+        speechRecognizer?.stopRecognition()
+        audioEngine?.stop()
+        recognitionRequest?.endAudio()
+    }
+    
+    private func speakGrokResponse(_ text: String) {
+        // Stop any current speech
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+        
+        // Create speech utterance
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.5
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 0.8
+        
+        // Start speaking
+        isGrokSpeaking = true
+        speechSynthesizer.speak(utterance)
+        
+        // Set up delegate to track when speaking ends
+        speechSynthesizer.delegate = SpeechDelegate(isGrokSpeaking: $isGrokSpeaking)
     }
     
     private func sendMessageToServer(_ content: String) {
@@ -278,6 +386,11 @@ struct ContentView: View {
                                     timestamp: messageData["timestamp"] as? String ?? ""
                                 )
                                 self.messages.append(message)
+                                
+                                // If it's from Grok, speak the response
+                                if sender == "grok" {
+                                    self.speakGrokResponse(content)
+                                }
                             }
                         }
                     }
