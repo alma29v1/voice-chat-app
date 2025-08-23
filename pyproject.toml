@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "threewaychat"
+version = "1.0.0"
+description = "Three-Way Chat System with Voice, Grok AI, and Cursor AI"
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi==0.116.1",
+    "uvicorn==0.35.0",
+    "websockets==12.0",
+    "requests==2.31.0",
+    "pydantic==2.10.6",
+    "python-multipart==0.0.6"
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "flake8"]
