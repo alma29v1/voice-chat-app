@@ -90,29 +90,115 @@ struct ContentView: View {
                 
                 VStack(spacing: 0) {
                     // Header with connection status
-                    VStack(spacing: 10) {
+                    VStack(spacing: 15) {
                         HStack {
-                            Image(systemName: isConnected ? "wifi" : "wifi.slash")
-                                .foregroundColor(isConnected ? .green : .red)
-                            Text(connectionStatus)
-                                .font(.caption)
-                                .foregroundColor(isConnected ? .green : .red)
-                            Spacer()
                             Button(action: { showingServerConfig = true }) {
                                 Image(systemName: "gear")
                                     .foregroundColor(.blue)
+                                    .font(.title2)
+                            }
+                            Spacer()
+                            Text("Three-Way Chat")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Button(action: { }) {
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.blue)
+                                    .font(.title2)
                             }
                         }
                         .padding(.horizontal)
                         
-                        Text("Three-Way Chat")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                        
-                        Text("Voice • Grok AI • Cursor AI")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        // Three-Way Connection Status
+                        HStack(spacing: 20) {
+                            // Phone/User Status
+                            VStack(spacing: 8) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isConnected ? Color.blue : Color.gray)
+                                        .frame(width: 50, height: 50)
+                                    
+                                    Image(systemName: "person.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                                
+                                Text("You")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                
+                                Text(isConnected ? "Connected" : "Disconnected")
+                                    .font(.caption2)
+                                    .foregroundColor(isConnected ? .green : .red)
+                            }
+                            
+                            // Connection Lines
+                            VStack(spacing: 15) {
+                                Rectangle()
+                                    .fill(isConnected ? Color.green : Color.gray)
+                                    .frame(width: 2, height: 20)
+                                
+                                Rectangle()
+                                    .fill(isConnected ? Color.green : Color.gray)
+                                    .frame(width: 2, height: 20)
+                            }
+                            
+                            // Grok AI Status
+                            VStack(spacing: 8) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isConnected ? Color.purple : Color.gray)
+                                        .frame(width: 50, height: 50)
+                                    
+                                    Image(systemName: "brain.head.profile")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                                
+                                Text("Grok AI")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                
+                                Text(isConnected ? "Ready" : "Offline")
+                                    .font(.caption2)
+                                    .foregroundColor(isConnected ? .green : .red)
+                            }
+                            
+                            // Connection Lines
+                            VStack(spacing: 15) {
+                                Rectangle()
+                                    .fill(isConnected ? Color.green : Color.gray)
+                                    .frame(width: 2, height: 20)
+                                
+                                Rectangle()
+                                    .fill(isConnected ? Color.green : Color.gray)
+                                    .frame(width: 2, height: 20)
+                            }
+                            
+                            // Cursor AI Status
+                            VStack(spacing: 8) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isConnected ? Color.green : Color.gray)
+                                        .frame(width: 50, height: 50)
+                                    
+                                    Image(systemName: "cursorarrow.rays")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                                
+                                Text("Cursor AI")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                
+                                Text(isConnected ? "Ready" : "Offline")
+                                    .font(.caption2)
+                                    .foregroundColor(isConnected ? .green : .red)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
                     .padding(.top)
                     
@@ -137,78 +223,109 @@ struct ContentView: View {
                     }
                     
                     // Recording area
-                    VStack(spacing: 15) {
-                        // Recording timer
+                    VStack(spacing: 20) {
+                        // Conversation Status
                         if isRecording {
-                            Text(timeString(from: recordingTime))
-                                .font(.title2)
-                                .fontWeight(.medium)
-                                .foregroundColor(.red)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(Color.red.opacity(0.1))
-                                .cornerRadius(15)
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Image(systemName: "mic.fill")
+                                        .foregroundColor(.red)
+                                        .font(.title2)
+                                    
+                                    Text("Recording...")
+                                        .font(.headline)
+                                        .foregroundColor(.red)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                Text(timeString(from: recordingTime))
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.red)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 15)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(20)
+                        } else if isGrokSpeaking {
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Image(systemName: "brain.head.profile")
+                                        .foregroundColor(.purple)
+                                        .font(.title2)
+                                    
+                                    Text("Grok AI is responding...")
+                                        .font(.headline)
+                                        .foregroundColor(.purple)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                Text("Listening to Grok's response")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 15)
+                            .background(Color.purple.opacity(0.1))
+                            .cornerRadius(20)
+                        } else {
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Image(systemName: "message.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.title2)
+                                    
+                                    Text("Ready for conversation")
+                                        .font(.headline)
+                                        .foregroundColor(.blue)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                Text("Tap to start talking")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 15)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(20)
                         }
                         
                         // Main recording button
                         Button(action: toggleRecording) {
                             ZStack {
                                 Circle()
-                                    .fill(isRecording ? Color.red : Color.blue)
-                                    .frame(width: 80, height: 80)
-                                    .shadow(color: isRecording ? .red.opacity(0.3) : .blue.opacity(0.3), radius: 10, x: 0, y: 5)
+                                    .fill(isRecording ? Color.red : (isGrokSpeaking ? Color.gray : Color.blue))
+                                    .frame(width: 100, height: 100)
+                                    .shadow(color: isRecording ? .red.opacity(0.4) : .blue.opacity(0.4), radius: 15, x: 0, y: 8)
                                 
                                 Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                                    .font(.system(size: 30, weight: .medium))
+                                    .font(.system(size: 40, weight: .medium))
                                     .foregroundColor(.white)
                             }
                         }
-                        .scaleEffect(isRecording ? 1.1 : 1.0)
-                        .animation(.easeInOut(duration: 0.2), value: isRecording)
+                        .scaleEffect(isRecording ? 1.2 : 1.0)
+                        .animation(.easeInOut(duration: 0.3), value: isRecording)
                         .disabled(!isConnected || isGrokSpeaking)
                         
                         // Show transcribed text while recording
                         if isRecording && !transcribedText.isEmpty {
-                            Text("Transcribing: \(transcribedText)")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                                .padding(.horizontal)
-                        }
-                        
-                        // Show when Grok is speaking
-                        if isGrokSpeaking {
-                            HStack {
-                                Image(systemName: "speaker.wave.2.fill")
-                                    .foregroundColor(.purple)
-                                Text("Grok is speaking...")
+                            VStack(spacing: 8) {
+                                Text("You're saying:")
                                     .font(.caption)
-                                    .foregroundColor(.purple)
+                                    .foregroundColor(.blue)
+                                    .fontWeight(.medium)
+                                
+                                Text(transcribedText)
+                                    .font(.body)
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(12)
+                                    .multilineTextAlignment(.center)
                             }
                             .padding(.horizontal)
-                            .padding(.vertical, 8)
-                            .background(Color.purple.opacity(0.1))
-                            .cornerRadius(10)
-                        }
-                        
-                        // Status indicators
-                        HStack(spacing: 20) {
-                            StatusIndicator(
-                                title: "Connection",
-                                isActive: isConnected,
-                                icon: "wifi"
-                            )
-                            
-                            StatusIndicator(
-                                title: "Recording",
-                                isActive: isRecording,
-                                icon: "mic.fill"
-                            )
-                            
-                            StatusIndicator(
-                                title: "Grok Speaking",
-                                isActive: isGrokSpeaking,
-                                icon: "speaker.wave.2.fill"
-                            )
                         }
                     }
                     .padding()
@@ -469,17 +586,29 @@ struct MessageBubble: View {
             VStack(alignment: message.sender == "phone" ? .trailing : .leading, spacing: 4) {
                 HStack {
                     if message.sender != "phone" {
-                        Text(message.sender.capitalized)
-                            .font(.caption)
-                            .foregroundColor(senderColor)
-                            .fontWeight(.semibold)
+                        HStack(spacing: 6) {
+                            Image(systemName: senderIcon)
+                                .font(.caption)
+                                .foregroundColor(senderColor)
+                            
+                            Text(senderName)
+                                .font(.caption)
+                                .foregroundColor(senderColor)
+                                .fontWeight(.semibold)
+                        }
                     }
                     Spacer()
                     if message.sender == "phone" {
-                        Text(message.sender.capitalized)
-                            .font(.caption)
-                            .foregroundColor(senderColor)
-                            .fontWeight(.semibold)
+                        HStack(spacing: 6) {
+                            Text(senderName)
+                                .font(.caption)
+                                .foregroundColor(senderColor)
+                                .fontWeight(.semibold)
+                            
+                            Image(systemName: senderIcon)
+                                .font(.caption)
+                                .foregroundColor(senderColor)
+                        }
                     }
                 }
                 
@@ -495,6 +624,24 @@ struct MessageBubble: View {
             if message.sender != "phone" {
                 Spacer()
             }
+        }
+    }
+    
+    private var senderName: String {
+        switch message.sender {
+        case "phone": return "You"
+        case "grok": return "Grok AI"
+        case "cursor": return "Cursor AI"
+        default: return message.sender.capitalized
+        }
+    }
+    
+    private var senderIcon: String {
+        switch message.sender {
+        case "phone": return "person.fill"
+        case "grok": return "brain.head.profile"
+        case "cursor": return "cursorarrow.rays"
+        default: return "person"
         }
     }
     
