@@ -115,6 +115,11 @@ app.add_middleware(
 
 async def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
+    
+    # Check if Grok API key is set
+    if not GROK_API_KEY:
+        return "Hello! I'm Grok AI, but I don't have my API key configured yet. Please set the GROK_API_KEY environment variable to enable full conversation capabilities. For now, I can help you with basic responses!"
+    
     try:
         headers = {
             "Authorization": f"Bearer {GROK_API_KEY}",
@@ -234,39 +239,38 @@ async def websocket_phone(websocket: WebSocket):
                 "timestamp": message.timestamp
             })
             
-            # Check if it's a programming question and route to Grok
-            if is_programming_question(message.content):
-                logger.info("Programming question detected, routing to Grok")
-                
-                # Send processing indicator
-                await manager.send_to_phone({
-                    "type": "system",
-                    "content": "Processing with Grok AI...",
-                    "timestamp": manager.get_timestamp()
-                })
-                
-                # Get Grok response
-                grok_response = await call_grok_api(message.content, "Programming question from phone")
-                
-                # Create Grok response message
-                grok_message = Message(
-                    sender="grok",
-                    content=grok_response,
-                    message_type="text",
-                    timestamp=manager.get_timestamp()
-                )
-                
-                # Add to knowledge base
-                manager.add_to_knowledge_base(grok_message)
-                
-                # Send Grok response to phone
-                await manager.send_to_phone({
-                    "type": "message",
-                    "sender": "grok",
-                    "content": grok_response,
-                    "message_type": "text",
-                    "timestamp": grok_message.timestamp
-                })
+            # Route ALL messages to Grok for a conversational experience
+            logger.info("Routing message to Grok AI")
+            
+            # Send processing indicator
+            await manager.send_to_phone({
+                "type": "system",
+                "content": "Processing with Grok AI...",
+                "timestamp": manager.get_timestamp()
+            })
+            
+            # Get Grok response
+            grok_response = await call_grok_api(message.content, "Conversation from phone")
+            
+            # Create Grok response message
+            grok_message = Message(
+                sender="grok",
+                content=grok_response,
+                message_type="text",
+                timestamp=manager.get_timestamp()
+            )
+            
+            # Add to knowledge base
+            manager.add_to_knowledge_base(grok_message)
+            
+            # Send Grok response to phone
+            await manager.send_to_phone({
+                "type": "message",
+                "sender": "grok",
+                "content": grok_response,
+                "message_type": "text",
+                "timestamp": grok_message.timestamp
+            })
                 
     except WebSocketDisconnect:
         await manager.disconnect_phone()
