@@ -116,6 +116,8 @@ app.add_middleware(
 async def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
     
+    logger.info(f"call_grok_api called with message: {message[:50]}...")
+    
     # For now, return a simple response to test the flow
     responses = [
         "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?",
@@ -125,7 +127,9 @@ async def call_grok_api(message: str, context: str = "") -> str:
     ]
     
     import random
-    return random.choice(responses)
+    response = random.choice(responses)
+    logger.info(f"Returning response: {response[:50]}...")
+    return response
 
 def is_programming_question(content: str) -> bool:
     """Detect if a message is a programming question"""
@@ -203,8 +207,10 @@ async def websocket_phone(websocket: WebSocket):
                 "timestamp": manager.get_timestamp()
             })
             
+            logger.info("Calling Grok API...")
             # Get Grok response
             grok_response = await call_grok_api(message.content, "Conversation from phone")
+            logger.info(f"Grok response: {grok_response[:50]}...")
             
             # Create Grok response message
             grok_message = Message(
