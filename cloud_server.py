@@ -250,7 +250,7 @@ async def websocket_phone(websocket: WebSocket):
             })
             
             # Get Grok response
-            grok_response = await call_grok_api(message.content, "Conversation from phone")
+            grok_response = call_grok_api(message.content, "Conversation from phone")
             
             # Create Grok response message
             grok_message = Message(
