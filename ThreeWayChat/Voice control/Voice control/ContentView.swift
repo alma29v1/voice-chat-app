@@ -75,6 +75,7 @@ struct ContentView: View {
     @State private var speechSynthesizer = AVSpeechSynthesizer()
     @State private var isGrokSpeaking = false
     @State private var grokResponse = ""
+    @State private var speechDelegate: SpeechDelegate?
     
     var body: some View {
         NavigationView {
@@ -185,9 +186,10 @@ struct ContentView: View {
                             .background(Color.purple.opacity(0.1))
                             .cornerRadius(10)
                         }
-                        .scaleEffect(isRecording ? 1.1 : 1.0)
-                        .animation(.easeInOut(duration: 0.2), value: isRecording)
-                        .disabled(!isConnected || isGrokSpeaking)
+                    }
+                    .scaleEffect(isRecording ? 1.1 : 1.0)
+                    .animation(.easeInOut(duration: 0.2), value: isRecording)
+                    .disabled(!isConnected || isGrokSpeaking)
                         
                         // Status indicators
                         HStack(spacing: 20) {
@@ -309,9 +311,9 @@ struct ContentView: View {
     
     private func stopSpeechRecognition() {
         // Stop speech recognition
-        speechRecognizer?.stopRecognition()
-        audioEngine?.stop()
         recognitionRequest?.endAudio()
+        audioEngine?.stop()
+        speechRecognizer = nil
     }
     
     private func speakGrokResponse(_ text: String) {
@@ -327,12 +329,13 @@ struct ContentView: View {
         utterance.pitchMultiplier = 1.0
         utterance.volume = 0.8
         
+        // Create and store delegate
+        speechDelegate = SpeechDelegate(isGrokSpeaking: $isGrokSpeaking)
+        speechSynthesizer.delegate = speechDelegate
+        
         // Start speaking
         isGrokSpeaking = true
         speechSynthesizer.speak(utterance)
-        
-        // Set up delegate to track when speaking ends
-        speechSynthesizer.delegate = SpeechDelegate(isGrokSpeaking: $isGrokSpeaking)
     }
     
     private func sendMessageToServer(_ content: String) {
