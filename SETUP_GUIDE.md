@@ -2,32 +2,28 @@
 
 ## Setting Up Grok API Key
 
-### Option 1: Using config.py (Recommended for Private Replit)
+### Using Replit Secrets (Recommended)
 
 1. **Get your Grok API Key**:
    - Go to https://console.x.ai/
    - Sign up or log in
    - Create a new API key
 
-2. **Edit the config.py file**:
-   - Open `config.py` in your Replit project
-   - Replace the empty string with your API key:
-   ```python
-   GROK_API_KEY = "your-actual-api-key-here"
-   ```
+2. **Add the secret to Replit**:
+   - In your Replit project, go to "Tools" → "Secrets"
+   - Click "New Secret"
+   - Key: `GROK_API_KEY`
+   - Value: `your-actual-api-key-here`
 
 3. **Restart the server**:
-   - The server will automatically use your API key
+   - The server will automatically use your API key from secrets
 
-### Option 2: Using Replit Secrets (For Public Replit)
+### Important Security Notes
 
-1. **Make your Replit project public**:
-   - Go to your Replit project settings
-   - Change visibility to "Public"
-
-2. **Add the secret**:
-   - Go to "Tools" → "Secrets"
-   - Add: `GROK_API_KEY` = `your-api-key-here`
+- ✅ **API key is stored securely** in Replit secrets
+- ✅ **No sensitive data in code** - safe for GitHub
+- ✅ **Works with private Replit** - no need to make public
+- ✅ **Automatically protected** by .gitignore
 
 ### Testing the Setup
 
