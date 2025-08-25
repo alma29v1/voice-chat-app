@@ -272,11 +272,16 @@ async def websocket_phone(websocket: WebSocket):
 @app.websocket("/ws/cursor")
 async def websocket_cursor(websocket: WebSocket):
     """WebSocket endpoint for cursor connection"""
+    logger.info("🚀 CURSOR WEBSOCKET ENDPOINT HIT!")
     await manager.connect_cursor(websocket)
+    logger.info("🔗 CURSOR CONNECTED TO MANAGER")
     try:
         while True:
+            logger.info("📥 CURSOR WAITING FOR MESSAGE...")
             data = await websocket.receive_text()
+            logger.info(f"📨 CURSOR RECEIVED DATA: {data}")
             message_data = json.loads(data)
+            logger.info(f"📋 CURSOR PARSED JSON: {message_data}")
             
             # MINIMAL TEST: Just echo back immediately
             await manager.send_to_cursor({
@@ -286,12 +291,30 @@ async def websocket_cursor(websocket: WebSocket):
                 "message_type": "text",
                 "timestamp": manager.get_timestamp()
             })
+            logger.info("✅ CURSOR ECHO SENT")
                 
     except WebSocketDisconnect:
         await manager.disconnect_cursor()
     except Exception as e:
         logger.error(f"Cursor WebSocket error: {e}")
         await manager.disconnect_cursor()
+
+@app.get("/debug")
+async def debug_status():
+    """Debug endpoint to check server status"""
+    return {
+        "phone_connected": manager.phone_connection is not None,
+        "cursor_connected": manager.cursor_connection is not None,
+        "knowledge_base_count": len(manager.knowledge_base),
+        "last_messages": [
+            {
+                "sender": msg.sender,
+                "content": msg.content[:50] + "..." if len(msg.content) > 50 else msg.content,
+                "timestamp": msg.timestamp
+            }
+            for msg in manager.knowledge_base[-5:]
+        ] if manager.knowledge_base else []
+    }
 
 @app.get("/history")
 async def get_conversation_history():
