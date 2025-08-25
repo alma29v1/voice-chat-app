@@ -298,6 +298,15 @@ async def websocket_cursor(websocket: WebSocket):
             # Add to knowledge base
             manager.add_to_knowledge_base(message)
             
+            # Echo cursor message back to cursor first (for testing)
+            await manager.send_to_cursor({
+                "type": "message",
+                "sender": "cursor_echo",
+                "content": f"Echo: {message.content}",
+                "message_type": message.message_type,
+                "timestamp": message.timestamp
+            })
+            
             # Broadcast to phone - THIS MUST HAPPEN FIRST
             try:
                 await manager.send_to_phone({
