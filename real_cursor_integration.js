@@ -24,7 +24,20 @@ class RealCursorIntegration {
             'companion-app': {
                 name: 'Big Beautiful Program Companion',
                 path: '/path/to/companion-app', // Update with actual path
-                description: 'Companion application for Big Beautiful Program'
+                description: 'Companion application for Big Beautiful Program',
+                apiUrl: 'http://localhost:5001',
+                endpoints: {
+                    'health': 'GET /api/health',
+                    'contacts': 'GET /api/contacts',
+                    'contact': 'GET /api/contacts/<id>',
+                    'create-contact': 'POST /api/contacts',
+                    'geocode': 'POST /api/geocode',
+                    'att-fiber-check': 'POST /api/att-fiber-check',
+                    'analytics': 'GET /api/analytics',
+                    'sync': 'POST /api/sync',
+                    'rolling-sales': 'GET /api/rolling-sales',
+                    'export-sales': 'GET /api/rolling-sales/export'
+                }
             }
         };
         console.log('[Real Cursor] Initializing real Cursor integration...');
@@ -133,8 +146,13 @@ Your current setup with Render deployment looks solid.`;
 
 The voice activity detection you implemented is working well. Any specific iOS issues?`;
 
-        } else if (query.toLowerCase().includes('run function') || query.toLowerCase().includes('execute') || query.toLowerCase().includes('call api')) {
-            if (this.currentProject === 'big-beautiful') {
+        } else if (query.toLowerCase().includes('run function') || query.toLowerCase().includes('execute') || query.toLowerCase().includes('call api') || query.toLowerCase().includes('get contacts') || query.toLowerCase().includes('check health') || query.toLowerCase().includes('get analytics')) {
+            
+            // Handle specific API commands for Companion App
+            if (this.currentProject === 'companion-app') {
+                await this.handleCompanionAPICommand(query);
+                return;
+            } else if (this.currentProject === 'big-beautiful') {
                 response = `I can help you run functions in your Big Beautiful Program! 
 
 **Available Commands:**
@@ -145,8 +163,9 @@ The voice activity detection you implemented is working well. Any specific iOS i
 
 What function would you like to execute?`;
             } else {
-                response = `To run functions in your Big Beautiful Program, first switch projects by saying:
-"Switch to Big Beautiful Program"
+                response = `To run functions and APIs, first switch to a project:
+- "Switch to Big Beautiful Program" 
+- "Switch to Companion App"
 
 Then I can help you execute functions and make API calls.`;
             }
@@ -162,6 +181,7 @@ ${currentProj.apiUrl ? `- API available for function calls` : ''}
 **Available Commands:**
 🔄 "Switch to [project name]" - Change projects
 ${this.currentProject === 'big-beautiful' ? '⚡ "Run function [name]" - Execute API functions' : ''}
+${this.currentProject === 'companion-app' ? '📱 "Get contacts", "Check health", "Get analytics", "Get rolling sales"' : ''}
 🔧 Technical questions and debugging
 
 What would you like me to help with?`;
@@ -207,6 +227,163 @@ I'm now ready to help with ${newProject}. What would you like to work on?`);
 🔹 **Companion App** - "switch to companion app"
 
 Currently working on: **${this.projects[this.currentProject].name}**`);
+        }
+    }
+
+    async handleCompanionAPICommand(query) {
+        const lowerQuery = query.toLowerCase();
+        let endpoint = null;
+        let parameters = {};
+        let contactId = null;
+        
+        // Parse the command and determine which API to call
+        if (lowerQuery.includes('check health') || lowerQuery.includes('health check')) {
+            endpoint = 'health';
+        } else if (lowerQuery.includes('get contacts') || lowerQuery.includes('show contacts')) {
+            endpoint = 'contacts';
+        } else if (lowerQuery.includes('get analytics') || lowerQuery.includes('show analytics')) {
+            endpoint = 'analytics';
+        } else if (lowerQuery.includes('rolling sales') || lowerQuery.includes('weekly sales')) {
+            endpoint = 'rolling-sales';
+        } else if (lowerQuery.includes('export sales') || lowerQuery.includes('export for email')) {
+            endpoint = 'export-sales';
+        } else if (lowerQuery.includes('sync data') || lowerQuery.includes('sync')) {
+            endpoint = 'sync';
+        } else if (lowerQuery.includes('geocode') && lowerQuery.includes('address')) {
+            endpoint = 'geocode';
+            // Extract address from query if possible
+            const addressMatch = query.match(/address[:\s]+(.+)/i);
+            if (addressMatch) {
+                parameters.address = addressMatch[1].trim();
+            }
+        } else if (lowerQuery.includes('att fiber') || lowerQuery.includes('fiber check')) {
+            endpoint = 'att-fiber-check';
+            // Extract address from query if possible
+            const addressMatch = query.match(/(?:for|at)[:\s]+(.+)/i);
+            if (addressMatch) {
+                parameters.address = addressMatch[1].trim();
+            }
+        } else {
+            // Show available commands
+            this.sendMessage(`**Available Companion App API Commands:**
+
+🏥 **Health Check**: "check health"
+👥 **Contacts**: "get contacts" 
+📊 **Analytics**: "get analytics"
+📈 **Sales**: "get rolling sales" or "export sales for email"
+🔄 **Sync**: "sync data"
+🗺️ **Geocode**: "geocode address [address]"
+🌐 **Fiber Check**: "check AT&T fiber for [address]"
+
+What would you like me to do?`);
+            return;
+        }
+        
+        try {
+            const result = await this.callCompanionAPI(endpoint, parameters, contactId);
+            
+            if (result.success) {
+                let responseMessage = `✅ **${endpoint.toUpperCase()} API Call Successful**\n\n`;
+                
+                // Format response based on endpoint
+                switch(endpoint) {
+                    case 'health':
+                        responseMessage += `🟢 **Server Status**: ${JSON.stringify(result.data, null, 2)}`;
+                        break;
+                    case 'contacts':
+                        if (Array.isArray(result.data)) {
+                            responseMessage += `📱 **Found ${result.data.length} contacts**\n`;
+                            result.data.slice(0, 5).forEach(contact => {
+                                responseMessage += `• ${contact.name || 'Unknown'} - ${contact.phone || 'No phone'}\n`;
+                            });
+                            if (result.data.length > 5) {
+                                responseMessage += `... and ${result.data.length - 5} more`;
+                            }
+                        } else {
+                            responseMessage += `📱 **Contact Data**: ${JSON.stringify(result.data, null, 2)}`;
+                        }
+                        break;
+                    case 'analytics':
+                        responseMessage += `📊 **Analytics Data**: ${JSON.stringify(result.data, null, 2)}`;
+                        break;
+                    case 'rolling-sales':
+                        responseMessage += `📈 **Rolling Sales Data**: ${JSON.stringify(result.data, null, 2)}`;
+                        break;
+                    case 'export-sales':
+                        responseMessage += `📧 **Sales Export Ready**: ${JSON.stringify(result.data, null, 2)}`;
+                        break;
+                    default:
+                        responseMessage += `📊 **Data**: ${JSON.stringify(result.data, null, 2)}`;
+                }
+                
+                this.sendMessage(responseMessage);
+            } else {
+                this.sendMessage(`❌ **API Error**: ${result.error}\n\nEndpoint: ${endpoint}`);
+            }
+        } catch (error) {
+            this.sendMessage(`❌ **Unexpected Error**: ${error.message}`);
+        }
+    }
+
+    async callCompanionAPI(endpoint, parameters = {}, contactId = null) {
+        const project = this.projects['companion-app'];
+        if (!project.apiUrl) {
+            return 'API URL not configured for Companion App';
+        }
+        
+        try {
+            console.log(`[Real Cursor] Calling Companion API: ${endpoint}`);
+            
+            let url = `${project.apiUrl}/api/${endpoint}`;
+            let method = 'GET';
+            let body = null;
+            
+            // Handle specific endpoints
+            switch(endpoint) {
+                case 'contacts':
+                    if (contactId) {
+                        url = `${project.apiUrl}/api/contacts/${contactId}`;
+                    }
+                    break;
+                case 'create-contact':
+                    url = `${project.apiUrl}/api/contacts`;
+                    method = 'POST';
+                    body = JSON.stringify(parameters);
+                    break;
+                case 'geocode':
+                case 'att-fiber-check':
+                case 'sync':
+                    method = 'POST';
+                    body = JSON.stringify(parameters);
+                    break;
+            }
+            
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-API-Key': 'YOUR_API_KEY_HERE' // Update with actual API key
+            };
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: headers,
+                body: body
+            });
+            
+            const result = await response.json();
+            console.log(`[Real Cursor] Companion API Response:`, result);
+            
+            return {
+                success: true,
+                data: result,
+                endpoint: endpoint
+            };
+        } catch (error) {
+            console.error(`[Real Cursor] Companion API Error:`, error);
+            return {
+                success: false,
+                error: error.message,
+                endpoint: endpoint
+            };
         }
     }
 
