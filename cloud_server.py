@@ -56,6 +56,13 @@ class ConnectionManager:
         self.phone_connection: Optional[WebSocket] = None
         self.cursor_connection: Optional[WebSocket] = None
         self.knowledge_base: List[Message] = []
+        self.conversation_context = {
+            "topic": None,
+            "cursor_last_response": None,
+            "user_question": None,
+            "key_points": [],
+            "conversation_type": "general"  # general, debugging, coding, explanation
+        }
 
     async def connect_phone(self, websocket: WebSocket):
         await websocket.accept()
@@ -116,10 +123,73 @@ class ConnectionManager:
         return datetime.now().isoformat()
 
     def add_to_knowledge_base(self, message: Message):
-        """Store message in knowledge base"""
+        """Store message in knowledge base and update context"""
         self.knowledge_base.append(message)
+        self.update_conversation_context(message)
         logger.info(
             f"Added to knowledge base: {message.sender}: {message.content[:50]}...")
+    
+    def update_conversation_context(self, message: Message):
+        """Smart context management to reduce token usage"""
+        content_lower = message.content.lower()
+        
+        # Update conversation type
+        if any(word in content_lower for word in ['debug', 'error', 'undefined', 'bug', 'fix']):
+            self.conversation_context["conversation_type"] = "debugging"
+        elif any(word in content_lower for word in ['code', 'function', 'javascript', 'python', 'programming']):
+            self.conversation_context["conversation_type"] = "coding"
+        elif any(word in content_lower for word in ['how', 'what', 'why', 'explain']):
+            self.conversation_context["conversation_type"] = "explanation"
+        
+        # Track user questions
+        if message.sender == "phone" and any(char in message.content for char in ['?', 'help', 'can you']):
+            self.conversation_context["user_question"] = message.content[:100]
+        
+        # Track cursor responses
+        if message.sender == "cursor":
+            self.conversation_context["cursor_last_response"] = message.content[:200]
+        
+        # Extract key points (simple keyword extraction)
+        keywords = []
+        for word in message.content.split():
+            if len(word) > 4 and word.lower() not in ['this', 'that', 'with', 'have', 'will', 'from', 'they']:
+                keywords.append(word.lower())
+        
+        # Keep only recent key points to limit memory
+        self.conversation_context["key_points"].extend(keywords[:3])
+        self.conversation_context["key_points"] = self.conversation_context["key_points"][-10:]  # Last 10 keywords
+    
+    def get_smart_context_for_grok(self) -> str:
+        """Generate efficient context for Grok without excessive tokens"""
+        ctx = self.conversation_context
+        
+        context_parts = [
+            "You are Grok in a three-way conversation with a user (phone) and Cursor AI (coding assistant)."
+        ]
+        
+        # Add conversation type context
+        if ctx["conversation_type"] == "debugging":
+            context_parts.append("This is a debugging session. Help solve code issues.")
+        elif ctx["conversation_type"] == "coding":
+            context_parts.append("This is a coding discussion. Provide programming guidance.")
+        elif ctx["conversation_type"] == "explanation":
+            context_parts.append("This is an explanation session. Help clarify concepts.")
+        
+        # Add user's current question if available
+        if ctx["user_question"]:
+            context_parts.append(f"User asked: {ctx['user_question']}")
+        
+        # Add what Cursor already said to avoid repetition
+        if ctx["cursor_last_response"]:
+            context_parts.append(f"Cursor already responded: {ctx['cursor_last_response']}")
+            context_parts.append("Build on or complement Cursor's response, don't repeat it.")
+        
+        # Add key topics
+        if ctx["key_points"]:
+            recent_topics = list(set(ctx["key_points"][-5:]))  # Last 5 unique keywords
+            context_parts.append(f"Current topics: {', '.join(recent_topics)}")
+        
+        return " ".join(context_parts)
 
 
 # Initialize FastAPI app and connection manager
@@ -140,8 +210,14 @@ async def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
 
     if not GROK_API_KEY:
-        logger.error("GROK_API_KEY not set - using fallback response")
-        return "Hello! I'm Grok AI. I can hear you! This is a test response to make sure the conversation is working."
+        logger.error("GROK_API_KEY not set - using smart fallback response")
+        # Smart fallback based on context
+        if "debug" in message.lower() or "error" in message.lower():
+            return "I can see you're debugging something! Once my API key is configured, I'll be able to provide detailed assistance. For now, Cursor is helping with the technical details."
+        elif "?" in message:
+            return "I hear your question! I'm Grok AI and I'm ready to help in this three-way conversation with you and Cursor. Just need my API key to be set up properly."
+        else:
+            return "Hello! I'm Grok AI in this three-way chat with you and Cursor. I can see the conversation but need my API key configured to provide full responses."
 
     # Build messages with history and system prompt
     history_messages = [
@@ -275,16 +351,9 @@ async def websocket_phone(websocket: WebSocket):
                 "timestamp": manager.get_timestamp()
             })
 
-            # Call Grok API
-            grok_response = await call_grok_api(
-                message.content,
-                (
-                    "You are Grok in a three-way conversation with the user and Cursor AI. "
-                    "Respond naturally. If the query needs coding help, wrap the specific "
-                    "task in [CURSOR_QUERY]task here[/CURSOR_QUERY]. Summarize any Cursor "
-                    "responses in plain English."
-                )
-            )
+            # Call Grok API with smart context
+            smart_context = manager.get_smart_context_for_grok()
+            grok_response = await call_grok_api(message.content, smart_context)
 
             # Check for Cursor query tag
             import re
@@ -407,8 +476,9 @@ async def websocket_cursor(websocket: WebSocket):
                     "timestamp": manager.get_timestamp()
                 })
 
-                # Get Grok response
-                grok_response = await call_grok_api(message.content, "Programming question from cursor")
+                # Get Grok response with smart context
+                smart_context = manager.get_smart_context_for_grok()
+                grok_response = await call_grok_api(message.content, smart_context)
 
                 # Create Grok response message
                 grok_message = Message(
