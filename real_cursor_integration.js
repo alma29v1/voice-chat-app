@@ -8,7 +8,27 @@ class RealCursorIntegration {
         this.serverIP = 'voice-chat-app-cc40.onrender.com';
         this.ws = null;
         this.conversationContext = '';
+        this.currentProject = 'threeway-chat'; // Default project
+        this.projects = {
+            'threeway-chat': {
+                name: 'ThreeWayChat App',
+                path: '/Volumes/LaCie/ThreeWayChat',
+                description: 'Voice-controlled three-way chat with Grok and Cursor AI'
+            },
+            'big-beautiful': {
+                name: 'Big Beautiful Program',
+                path: '/path/to/big-beautiful-program', // Update with actual path
+                description: 'Main application with API and server',
+                apiUrl: 'your-big-beautiful-program-api-url' // Update with actual API
+            },
+            'companion-app': {
+                name: 'Big Beautiful Program Companion',
+                path: '/path/to/companion-app', // Update with actual path
+                description: 'Companion application for Big Beautiful Program'
+            }
+        };
         console.log('[Real Cursor] Initializing real Cursor integration...');
+        console.log(`[Real Cursor] Current project: ${this.projects[this.currentProject].name}`);
     }
 
     async connect() {
@@ -48,16 +68,23 @@ class RealCursorIntegration {
             if (message.sender === 'phone' && message.type === 'message') {
                 console.log('[Real Cursor] Phone message received, checking if help needed...');
                 
-                // Check if it's a programming/tech question
-                const content = message.content.toLowerCase();
-                if (content.includes('debug') || content.includes('error') || 
-                    content.includes('undefined') || content.includes('function') ||
-                    content.includes('help') || content.includes('javascript') ||
-                    content.includes('code')) {
-                    
-                    console.log('[Real Cursor] Programming question detected, providing assistance...');
-                    this.provideRealCursorResponse(message.content);
-                }
+                        // Check for project switching commands
+        const content = message.content.toLowerCase();
+        if (content.includes('switch to') || content.includes('change project')) {
+            this.handleProjectSwitch(message.content);
+            return;
+        }
+        
+        // Check if it's a programming/tech question
+        if (content.includes('debug') || content.includes('error') || 
+            content.includes('undefined') || content.includes('function') ||
+            content.includes('help') || content.includes('javascript') ||
+            content.includes('code') || content.includes('api') ||
+            content.includes('run function') || content.includes('execute')) {
+            
+            console.log('[Real Cursor] Programming/API question detected, providing assistance...');
+            this.provideRealCursorResponse(message.content);
+        }
             }
             
             // Also respond to queries from Grok (CURSOR_QUERY tags)
@@ -106,19 +133,111 @@ Your current setup with Render deployment looks solid.`;
 
 The voice activity detection you implemented is working well. Any specific iOS issues?`;
 
+        } else if (query.toLowerCase().includes('run function') || query.toLowerCase().includes('execute') || query.toLowerCase().includes('call api')) {
+            if (this.currentProject === 'big-beautiful') {
+                response = `I can help you run functions in your Big Beautiful Program! 
+
+**Available Commands:**
+- "run function [name]" - Execute a specific function
+- "call api [endpoint]" - Make an API call
+- "get status" - Check program status
+- "list functions" - Show available functions
+
+What function would you like to execute?`;
+            } else {
+                response = `To run functions in your Big Beautiful Program, first switch projects by saying:
+"Switch to Big Beautiful Program"
+
+Then I can help you execute functions and make API calls.`;
+            }
         } else {
-            response = `I can help with that! I'm connected to your actual Cursor conversation and can see:
+            const currentProj = this.projects[this.currentProject];
+            response = `I can help with **${currentProj.name}**! I'm connected to your actual Cursor conversation and can see:
 
-- Your ThreeWayChat project structure
-- The voice control iOS app you're building  
-- WebSocket server implementation on Render
-- Integration with Grok AI API
+- Your current project: **${currentProj.name}**
+- Project path: ${currentProj.path}
+- ${currentProj.description}
+${currentProj.apiUrl ? `- API available for function calls` : ''}
 
-What specific aspect would you like me to focus on?`;
+**Available Commands:**
+🔄 "Switch to [project name]" - Change projects
+${this.currentProject === 'big-beautiful' ? '⚡ "Run function [name]" - Execute API functions' : ''}
+🔧 Technical questions and debugging
+
+What would you like me to help with?`;
         }
 
         await this.sendMessage(response);
         console.log('[Real Cursor] Provided response to Grok');
+    }
+
+    handleProjectSwitch(message) {
+        const content = message.toLowerCase();
+        let targetProject = null;
+        
+        if (content.includes('big beautiful') || content.includes('main program')) {
+            targetProject = 'big-beautiful';
+        } else if (content.includes('companion') || content.includes('companion app')) {
+            targetProject = 'companion-app';
+        } else if (content.includes('three way') || content.includes('chat app')) {
+            targetProject = 'threeway-chat';
+        }
+        
+        if (targetProject && targetProject !== this.currentProject) {
+            const oldProject = this.projects[this.currentProject].name;
+            this.currentProject = targetProject;
+            const newProject = this.projects[this.currentProject].name;
+            
+            console.log(`[Real Cursor] Switching from ${oldProject} to ${newProject}`);
+            
+            this.sendMessage(`✅ Switched to **${newProject}**
+            
+📁 **Project Path**: ${this.projects[targetProject].path}
+📋 **Description**: ${this.projects[targetProject].description}
+${this.projects[targetProject].apiUrl ? `🔗 **API Available**: ${this.projects[targetProject].apiUrl}` : ''}
+
+I'm now ready to help with ${newProject}. What would you like to work on?`);
+        } else if (targetProject === this.currentProject) {
+            this.sendMessage(`Already working on **${this.projects[targetProject].name}**. What can I help you with?`);
+        } else {
+            this.sendMessage(`**Available Projects:**
+            
+🔹 **ThreeWayChat App** - "switch to three way chat"
+🔹 **Big Beautiful Program** - "switch to big beautiful program" 
+🔹 **Companion App** - "switch to companion app"
+
+Currently working on: **${this.projects[this.currentProject].name}**`);
+        }
+    }
+
+    async callBigBeautifulAPI(functionName, parameters = {}) {
+        const project = this.projects['big-beautiful'];
+        if (!project.apiUrl) {
+            return 'API URL not configured for Big Beautiful Program';
+        }
+        
+        try {
+            console.log(`[Real Cursor] Calling Big Beautiful API: ${functionName}`);
+            
+            // Make API call to your Big Beautiful Program
+            const response = await fetch(`${project.apiUrl}/api/${functionName}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Add your API key here if needed
+                    // 'Authorization': 'Bearer your-api-key'
+                },
+                body: JSON.stringify(parameters)
+            });
+            
+            const result = await response.json();
+            console.log(`[Real Cursor] API Response:`, result);
+            
+            return result;
+        } catch (error) {
+            console.error(`[Real Cursor] API Error:`, error);
+            return `Error calling ${functionName}: ${error.message}`;
+        }
     }
 
     async sendMessage(content) {
