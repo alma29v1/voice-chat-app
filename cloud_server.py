@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Grok AI Configuration
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")  # Set via Render environment
 GROK_API_URL = "https://api.x.ai/v1/chat/completions"
-GROK_MODEL = "grok-4-latest"
+GROK_MODEL = "grok-2-mini"
 
 # Debug: Log API key status (without revealing the key)
 if GROK_API_KEY:
