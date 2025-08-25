@@ -8,22 +8,29 @@ import asyncio
 import json
 import logging
 import os
-from typing import Dict, List, Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from typing import List, Optional
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-import aiohttp
 from datetime import datetime
+import aiohttp
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Grok AI Configuration
-GROK_API_KEY = os.getenv("GROK_API_KEY", "")  # Set via Replit secrets
+GROK_API_KEY = os.getenv("GROK_API_KEY", "")  # Set via Render environment
 GROK_API_URL = "https://api.x.ai/v1/chat/completions"
 GROK_MODEL = "grok-4-latest"
+
+# Debug: Log API key status (without revealing the key)
+if GROK_API_KEY:
+    logger.info(f"✅ GROK_API_KEY loaded successfully (length: {len(GROK_API_KEY)})")
+else:
+    logger.error("❌ GROK_API_KEY not found in environment variables")
+
 
 class Message(BaseModel):
     sender: str
@@ -31,44 +38,45 @@ class Message(BaseModel):
     message_type: str = "text"
     timestamp: Optional[str] = None
 
+
 class ConnectionManager:
     def __init__(self):
         self.phone_connection: Optional[WebSocket] = None
         self.cursor_connection: Optional[WebSocket] = None
         self.knowledge_base: List[Message] = []
-        
+
     async def connect_phone(self, websocket: WebSocket):
         await websocket.accept()
         self.phone_connection = websocket
         logger.info("📱 Phone connected")
-        
+
         # Send connection confirmation
         await self.send_to_phone({
             "type": "system",
             "content": "Connected to ThreeWayChat cloud server",
             "timestamp": self.get_timestamp()
         })
-        
+
     async def connect_cursor(self, websocket: WebSocket):
         await websocket.accept()
         self.cursor_connection = websocket
         logger.info("💻 Cursor connected")
-        
+
         # Send connection confirmation
         await self.send_to_cursor({
-            "type": "system", 
+            "type": "system",
             "content": "Connected to ThreeWayChat cloud server",
             "timestamp": self.get_timestamp()
         })
-        
+
     async def disconnect_phone(self):
         self.phone_connection = None
         logger.info("📱 Phone disconnected")
-        
+
     async def disconnect_cursor(self):
         self.cursor_connection = None
         logger.info("💻 Cursor disconnected")
-        
+
     async def send_to_phone(self, message: dict):
         if self.phone_connection:
             try:
@@ -76,7 +84,7 @@ class ConnectionManager:
             except Exception as e:
                 logger.error(f"Error sending to phone: {e}")
                 await self.disconnect_phone()
-                
+
     async def send_to_cursor(self, message: dict):
         if self.cursor_connection:
             try:
@@ -84,21 +92,23 @@ class ConnectionManager:
             except Exception as e:
                 logger.error(f"Error sending to cursor: {e}")
                 await self.disconnect_cursor()
-                
+
     async def broadcast(self, message: dict, exclude_sender: str = None):
         """Broadcast message to all connected clients"""
         if exclude_sender != "phone" and self.phone_connection:
             await self.send_to_phone(message)
         if exclude_sender != "cursor" and self.cursor_connection:
             await self.send_to_cursor(message)
-            
+
     def get_timestamp(self):
         return datetime.now().isoformat()
-        
+
     def add_to_knowledge_base(self, message: Message):
         """Store message in knowledge base"""
         self.knowledge_base.append(message)
-        logger.info(f"Added to knowledge base: {message.sender}: {message.content[:50]}...")
+        logger.info(
+            f"Added to knowledge base: {message.sender}: {message.content[:50]}...")
+
 
 # Initialize FastAPI app and connection manager
 app = FastAPI(title="ThreeWayChat Cloud Server")
@@ -113,23 +123,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 async def call_grok_api(message: str, context: str = "") -> str:
     """Call Grok AI API with the given message"""
-    
-    logger.info(f"call_grok_api called with message: {message[:50]}...")
-    
-    # For now, return a simple response to test the flow
-    responses = [
-        "Hello! I'm Grok AI. I'm here to help you with any questions or conversations. What would you like to talk about?",
-        "Hi there! I'm Grok AI, ready to assist you with programming, general questions, or just chat. What's on your mind?",
-        "Greetings! I'm Grok AI. I can help with coding, problem-solving, or casual conversation. How can I assist you today?",
-        "Hello! I'm Grok AI. I'm excited to help you with any questions or topics you'd like to discuss. What would you like to explore?"
+
+    if not GROK_API_KEY:
+        logger.error("GROK_API_KEY not set - using fallback response")
+        return "Hello! I'm Grok AI. I can hear you! This is a test response to make sure the conversation is working."
+
+    # Build messages with history and system prompt
+    history_messages = [
+        {"role": "system", "content": context},
+    ] + [
+        {"role": "user" if msg.sender ==
+            "phone" else "assistant", "content": msg.content}
+        for msg in manager.knowledge_base[-10:]  # Last 10 messages for context
+    ] + [
+        {"role": "user", "content": message}
     ]
-    
-    import random
-    response = random.choice(responses)
-    logger.info(f"Returning response: {response[:50]}...")
-    return response
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            GROK_API_URL,
+            headers={
+                "Authorization": f"Bearer {GROK_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": GROK_MODEL,
+                "messages": history_messages,
+                "temperature": 0.7,
+                "max_tokens": 500
+            }
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                logger.error(f"API error: {response.status} - {error_text}")
+                return "Sorry, there was an error processing your request."
+
+            data = await response.json()
+            if "choices" in data and data["choices"]:
+                return data["choices"][0]["message"]["content"].strip()
+            else:
+                logger.error("Invalid API response")
+                return "Sorry, I couldn't generate a response."
+
 
 def is_programming_question(content: str) -> bool:
     """Detect if a message is a programming question"""
@@ -139,9 +177,10 @@ def is_programming_question(content: str) -> bool:
         "algorithm", "data structure", "framework", "library", "git",
         "deploy", "server", "database", "frontend", "backend", "fullstack"
     ]
-    
+
     content_lower = content.lower()
     return any(keyword in content_lower for keyword in programming_keywords)
+
 
 @app.get("/")
 async def root():
@@ -156,6 +195,7 @@ async def root():
         "deployment": "cloud"
     }
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint for cloud deployment"""
@@ -168,6 +208,7 @@ async def health_check():
         }
     }
 
+
 @app.websocket("/ws/phone")
 async def websocket_phone(websocket: WebSocket):
     """WebSocket endpoint for phone connection"""
@@ -176,10 +217,13 @@ async def websocket_phone(websocket: WebSocket):
         while True:
             logger.info("Phone WebSocket: Waiting for message...")
             data = await websocket.receive_text()
-            logger.info(f"Phone WebSocket: Received data: {data}")
+            logger.info(
+                f"Phone WebSocket: Received data: "
+                f"{data}"
+            )
             message_data = json.loads(data)
             logger.info(f"Phone WebSocket: Parsed message: {message_data}")
-            
+
             # Create message object
             message = Message(
                 sender="phone",
@@ -187,10 +231,10 @@ async def websocket_phone(websocket: WebSocket):
                 message_type=message_data.get("type", "text"),
                 timestamp=manager.get_timestamp()
             )
-            
+
             # Add to knowledge base
             manager.add_to_knowledge_base(message)
-            
+
             # Broadcast to cursor
             logger.info("Broadcasting to cursor")
             try:
@@ -204,50 +248,105 @@ async def websocket_phone(websocket: WebSocket):
                 logger.info("Cursor broadcast sent successfully")
             except Exception as e:
                 logger.error(f"Error broadcasting to cursor: {e}")
-            
-            # Send immediate response for testing
-            logger.info("Sending immediate response")
-            
-            # Send processing indicator
-            logger.info("Sending processing indicator")
-            try:
+
+            # Send processing indicator to phone
+            await manager.send_to_phone({
+                "type": "system",
+                "content": "Grok is thinking...",
+                "timestamp": manager.get_timestamp()
+            })
+
+            # Call Grok API
+            grok_response = await call_grok_api(
+                message.content,
+                (
+                    "You are Grok in a three-way conversation with the user and Cursor AI. "
+                    "Respond naturally. If the query needs coding help, wrap the specific "
+                    "task in [CURSOR_QUERY]task here[/CURSOR_QUERY]. Summarize any Cursor "
+                    "responses in plain English."
+                )
+            )
+
+            # Check for Cursor query tag
+            import re
+            cursor_query_match = re.search(
+                r'\[CURSOR_QUERY\](.*?)\[/CURSOR_QUERY\]',
+                grok_response,
+                re.DOTALL
+            )
+            if cursor_query_match:
+                cursor_query = cursor_query_match.group(1).strip()
+
+                # Send status to phone
                 await manager.send_to_phone({
                     "type": "system",
-                    "content": "Processing with Grok AI...",
+                    "content": "Grok is consulting Cursor AI...",
                     "timestamp": manager.get_timestamp()
                 })
-                logger.info("Processing indicator sent successfully")
-            except Exception as e:
-                logger.error(f"Error sending processing indicator: {e}")
-            
-            # Send Grok response immediately
-            logger.info("About to send Grok response")
-            try:
-                await manager.send_to_phone({
-                    "type": "message",
+
+                # Send query to cursor
+                await manager.send_to_cursor({
+                    "type": "query",
                     "sender": "grok",
-                    "content": "Hello! I'm Grok AI. I can hear you! This is a test response to make sure the conversation is working.",
-                    "message_type": "text",
+                    "content": cursor_query,
                     "timestamp": manager.get_timestamp()
                 })
-                logger.info("Grok response sent successfully")
-            except Exception as e:
-                logger.error(f"Error sending Grok response: {e}")
-                # Try to send a simple error message
-                try:
-                    await manager.send_to_phone({
-                        "type": "system",
-                        "content": f"Error: {str(e)}",
-                        "timestamp": manager.get_timestamp()
-                    })
-                except Exception as e2:
-                    logger.error(f"Failed to send error message: {e2}")
-                
+
+                # Wait for cursor response (simple timeout-based wait for demo;
+                # improve later)
+                cursor_response = None
+                start_time = datetime.now()
+                while (
+                        datetime.now() -
+                        start_time).seconds < 30:  # 30s timeout
+                    # Check knowledge base for recent cursor message
+                    recent_messages = [
+                        m for m in manager.knowledge_base[-5:] if m.sender == "cursor"]
+                    if recent_messages:
+                        cursor_response = recent_messages[-1].content
+                        break
+                    await asyncio.sleep(1)
+
+                if cursor_response:
+                    # Call Grok again to summarize
+                    summary_prompt = (
+                        f"Summarize this Cursor AI response in simple, "
+                        f"natural language: {cursor_response}. "
+                        "Keep it jargon-free for voice relay."
+                    )
+                    grok_summary = await call_grok_api(summary_prompt, "Summarize for user")
+                    final_response = grok_summary
+                else:
+                    final_response = "Cursor AI didn't respond in time. Here's my direct response: " + grok_response
+            else:
+                final_response = grok_response
+
+            # Create final message
+            final_message = Message(
+                sender="grok",
+                content=final_response,
+                message_type="text",
+                timestamp=manager.get_timestamp()
+            )
+
+            # Add to knowledge base
+            manager.add_to_knowledge_base(final_message)
+
+            # Send to phone
+            await manager.send_to_phone({
+                "type": "message",
+                "sender": "grok",
+                "content": final_response,
+                "message_type": "text",
+                "timestamp": final_message.timestamp
+            })
+
     except WebSocketDisconnect:
         await manager.disconnect_phone()
     except Exception as e:
         logger.error(f"Phone WebSocket error: {e}")
         await manager.disconnect_phone()
+
 
 @app.websocket("/ws/cursor")
 async def websocket_cursor(websocket: WebSocket):
@@ -257,7 +356,7 @@ async def websocket_cursor(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            
+
             # Create message object
             message = Message(
                 sender="cursor",
@@ -265,10 +364,10 @@ async def websocket_cursor(websocket: WebSocket):
                 message_type=message_data.get("type", "text"),
                 timestamp=manager.get_timestamp()
             )
-            
+
             # Add to knowledge base
             manager.add_to_knowledge_base(message)
-            
+
             # Broadcast to phone
             await manager.send_to_phone({
                 "type": "message",
@@ -277,21 +376,21 @@ async def websocket_cursor(websocket: WebSocket):
                 "message_type": message.message_type,
                 "timestamp": message.timestamp
             })
-            
+
             # Check if it's a programming question and route to Grok
             if is_programming_question(message.content):
                 logger.info("Programming question detected, routing to Grok")
-                
+
                 # Send processing indicator
                 await manager.send_to_cursor({
                     "type": "system",
                     "content": "Processing with Grok AI...",
                     "timestamp": manager.get_timestamp()
                 })
-                
+
                 # Get Grok response
                 grok_response = await call_grok_api(message.content, "Programming question from cursor")
-                
+
                 # Create Grok response message
                 grok_message = Message(
                     sender="grok",
@@ -299,10 +398,10 @@ async def websocket_cursor(websocket: WebSocket):
                     message_type="text",
                     timestamp=manager.get_timestamp()
                 )
-                
+
                 # Add to knowledge base
                 manager.add_to_knowledge_base(grok_message)
-                
+
                 # Send Grok response to cursor
                 await manager.send_to_cursor({
                     "type": "message",
@@ -311,12 +410,13 @@ async def websocket_cursor(websocket: WebSocket):
                     "message_type": "text",
                     "timestamp": grok_message.timestamp
                 })
-                
+
     except WebSocketDisconnect:
         await manager.disconnect_cursor()
     except Exception as e:
         logger.error(f"Cursor WebSocket error: {e}")
         await manager.disconnect_cursor()
+
 
 @app.get("/history")
 async def get_conversation_history():
@@ -334,12 +434,5 @@ async def get_conversation_history():
     }
 
 if __name__ == "__main__":
-    # Get port from environment (for cloud deployment)
     port = int(os.getenv("PORT", 5000))
-    
-    print(f"🚀 ThreeWayChat Cloud Server starting...")
-    print(f"📱 Phone should connect to: ws://your-domain.com/ws/phone")
-    print(f"💻 Cursor should connect to: ws://your-domain.com/ws/cursor")
-    print(f"🌐 Server running on port: {port}")
-    
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=port)
