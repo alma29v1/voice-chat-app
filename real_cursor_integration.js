@@ -44,7 +44,23 @@ class RealCursorIntegration {
             const message = JSON.parse(data);
             console.log('[Real Cursor] Received:', message);
 
-            // Only respond to queries from Grok (CURSOR_QUERY tags)
+            // Respond to phone messages that need assistance
+            if (message.sender === 'phone' && message.type === 'message') {
+                console.log('[Real Cursor] Phone message received, checking if help needed...');
+                
+                // Check if it's a programming/tech question
+                const content = message.content.toLowerCase();
+                if (content.includes('debug') || content.includes('error') || 
+                    content.includes('undefined') || content.includes('function') ||
+                    content.includes('help') || content.includes('javascript') ||
+                    content.includes('code')) {
+                    
+                    console.log('[Real Cursor] Programming question detected, providing assistance...');
+                    this.provideRealCursorResponse(message.content);
+                }
+            }
+            
+            // Also respond to queries from Grok (CURSOR_QUERY tags)
             if (message.type === 'query' && message.sender === 'grok') {
                 console.log('[Real Cursor] Grok is asking for help with:', message.content);
                 this.provideRealCursorResponse(message.content);

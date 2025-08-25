@@ -17,6 +17,10 @@ extension Date {
     }
 }
 
+extension Notification.Name {
+    static let grokFinishedSpeaking = Notification.Name("grokFinishedSpeaking")
+}
+
 class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate {
     @Binding var isGrokSpeaking: Bool
     
@@ -27,12 +31,16 @@ class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         DispatchQueue.main.async {
             self.isGrokSpeaking = false
+            // 🔧 FIX: Restart voice listening after Grok finishes speaking
+            NotificationCenter.default.post(name: .grokFinishedSpeaking, object: nil)
         }
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         DispatchQueue.main.async {
             self.isGrokSpeaking = false
+            // 🔧 FIX: Restart voice listening after Grok stops speaking
+            NotificationCenter.default.post(name: .grokFinishedSpeaking, object: nil)
         }
     }
 }
@@ -73,6 +81,7 @@ struct ContentView: View {
     @State private var wakeupCountdown = 0
     @State private var countdownTimer: Timer?
     @State private var isVoiceActivated = true // Auto voice detection
+    @State private var preventSelfListening = true // Prevent listening to own speech
     @State private var silenceTimer: Timer?
     @State private var lastSpeechTime = Date()
     @State private var voiceThreshold: Float = 0.1 // Voice detection sensitivity
@@ -317,6 +326,11 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundColor(isVoiceActivated ? .green : .gray)
                                 .multilineTextAlignment(.center)
+                            
+                            // 🎧 Headset mode toggle
+                            Toggle("Headset Mode (Prevents self-listening)", isOn: $preventSelfListening)
+                                .font(.caption)
+                                .padding(.top, 8)
                         }
                         
                         if isRecording && !transcribedText.isEmpty {
@@ -356,6 +370,26 @@ struct ContentView: View {
                 if isVoiceActivated {
                     startVoiceActivityDetection()
                 }
+                
+                // 🔧 FIX: Listen for Grok speech completion to restart voice listening
+                NotificationCenter.default.addObserver(
+                    forName: .grokFinishedSpeaking,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    // Restart voice listening after Grok finishes speaking with longer delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        if self.isVoiceActivated && self.isConnected && !self.isRecording && !self.isGrokSpeaking {
+                            print("🔄 Restarting voice listening after Grok finished speaking")
+                            self.startContinuousListening()
+                        }
+                    }
+                }
+            }
+            .onDisappear {
+                // Clean up notification observer
+                NotificationCenter.default.removeObserver(self, name: .grokFinishedSpeaking, object: nil)
+                stopVoiceActivityDetection()
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
@@ -446,6 +480,15 @@ struct ContentView: View {
             messages.append(userMessage)
             
             transcribedText = ""
+        }
+        
+        // 🔧 FIX: Restart continuous listening after recording stops
+        // Wait a moment for audio session to reset, then restart listening
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            if self.isVoiceActivated && self.isConnected && !self.isGrokSpeaking && self.preventSelfListening {
+                print("🔄 Restarting continuous listening for next voice input...")
+                self.startContinuousListening()
+            }
         }
     }
     
@@ -771,6 +814,8 @@ struct ContentView: View {
                                 self.messages.append(message)
                                 
                                 if sender == "grok" {
+                                    // 🔧 FIX: Stop voice listening while Grok speaks to prevent feedback loop
+                                    self.stopContinuousListening()
                                     self.speakGrokResponse(content)
                                 }
                             }

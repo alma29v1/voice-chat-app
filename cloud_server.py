@@ -242,7 +242,7 @@ async def call_grok_api(message: str, context: str = "") -> str:
                     "model": CURRENT_GROK_MODEL,
                     "messages": history_messages,
                     "temperature": 0.7,
-                    "max_tokens": 500
+                    "max_tokens": 1000  # Increased for better responses
                 }
             ) as response:
                 if response.status != 200:
