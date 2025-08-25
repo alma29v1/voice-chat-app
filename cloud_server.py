@@ -24,17 +24,19 @@ logger = logging.getLogger(__name__)
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")  # Set via Render environment
 GROK_API_URL = "https://api.x.ai/v1/chat/completions"
 
-# Available Grok models with pricing info (hypothetical costs for reference)
+# Available Grok models with pricing info (updated with Grok 4)
 GROK_MODELS = {
     "grok-2-mini": {"name": "Grok 2 Mini", "cost": "Cheapest", "speed": "Fastest"},
     "grok-2": {"name": "Grok 2", "cost": "Medium", "speed": "Fast"},  
     "grok-2-1212": {"name": "Grok 2 (Dec 2024)", "cost": "Medium", "speed": "Fast"},
     "grok-beta": {"name": "Grok Beta", "cost": "Higher", "speed": "Medium"},
-    "grok-vision-beta": {"name": "Grok Vision", "cost": "Highest", "speed": "Slower"}
+    "grok-vision-beta": {"name": "Grok Vision", "cost": "Highest", "speed": "Slower"},
+    "grok-4": {"name": "Grok 4", "cost": "Premium", "speed": "Advanced"},
+    "grok-4-heavy": {"name": "Grok 4 Heavy (Multi-Agent)", "cost": "Enterprise", "speed": "Advanced+"}
 }
 
 # Current model (can be changed via API)  
-CURRENT_GROK_MODEL = "grok-2"
+CURRENT_GROK_MODEL = "grok-4"  # Upgraded to Grok 4 for better performance
 
 # Debug: Log API key status (without revealing the key)
 if GROK_API_KEY:
