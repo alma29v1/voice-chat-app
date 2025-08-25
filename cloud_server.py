@@ -34,7 +34,7 @@ GROK_MODELS = {
 }
 
 # Current model (can be changed via API)  
-CURRENT_GROK_MODEL = "grok-beta"
+CURRENT_GROK_MODEL = "grok-2"
 
 # Debug: Log API key status (without revealing the key)
 if GROK_API_KEY:
