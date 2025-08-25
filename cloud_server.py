@@ -33,8 +33,8 @@ GROK_MODELS = {
     "grok-vision-beta": {"name": "Grok Vision", "cost": "Highest", "speed": "Slower"}
 }
 
-# Current model (can be changed via API)
-CURRENT_GROK_MODEL = "grok-2-1212"
+# Current model (can be changed via API)  
+CURRENT_GROK_MODEL = "grok-beta"
 
 # Debug: Log API key status (without revealing the key)
 if GROK_API_KEY:
