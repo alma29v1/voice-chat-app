@@ -278,80 +278,14 @@ async def websocket_cursor(websocket: WebSocket):
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
-            # Create message object
-            message = Message(
-                sender="cursor",
-                content=message_data.get("content", ""),
-                message_type=message_data.get("type", "text"),
-                timestamp=manager.get_timestamp()
-            )
-            
-            # Add to knowledge base
-            manager.add_to_knowledge_base(message)
-            
-            # Echo cursor message back to cursor first (for testing)
+            # MINIMAL TEST: Just echo back immediately
             await manager.send_to_cursor({
                 "type": "message",
                 "sender": "cursor_echo",
-                "content": f"Echo: {message.content}",
-                "message_type": message.message_type,
-                "timestamp": message.timestamp
+                "content": f"ECHO: {message_data.get('content', 'NO_CONTENT')}",
+                "message_type": "text",
+                "timestamp": manager.get_timestamp()
             })
-            
-            # Broadcast to phone - THIS MUST HAPPEN FIRST
-            try:
-                await manager.send_to_phone({
-                    "type": "message",
-                    "sender": "cursor",
-                    "content": message.content,
-                    "message_type": message.message_type,
-                    "timestamp": message.timestamp
-                })
-            except Exception as e:
-                logger.error(f"Error sending cursor message to phone: {e}")
-            
-            # Check if it's a programming question and route to Grok
-            if is_programming_question(message.content):
-                try:
-                    logger.info("Programming question detected, routing to Grok")
-                    
-                    # Send processing indicator
-                    await manager.send_to_cursor({
-                        "type": "system",
-                        "content": "Processing with Grok AI...",
-                        "timestamp": manager.get_timestamp()
-                    })
-                    
-                    # Get Grok response
-                    grok_response = await call_grok_api(message.content, "Programming question from cursor")
-                    
-                    # Create Grok response message
-                    grok_message = Message(
-                        sender="grok",
-                        content=grok_response,
-                        message_type="text",
-                        timestamp=manager.get_timestamp()
-                    )
-                    
-                    # Add to knowledge base
-                    manager.add_to_knowledge_base(grok_message)
-                    
-                    # Send Grok response to cursor
-                    await manager.send_to_cursor({
-                        "type": "message",
-                        "sender": "grok",
-                        "content": grok_response,
-                        "message_type": "text",
-                        "timestamp": grok_message.timestamp
-                    })
-                    
-                except Exception as e:
-                    logger.error(f"Error processing Grok response for cursor: {e}")
-                    await manager.send_to_cursor({
-                        "type": "system",
-                        "content": "Sorry, Grok AI is currently unavailable.",
-                        "timestamp": manager.get_timestamp()
-                    })
                 
     except WebSocketDisconnect:
         await manager.disconnect_cursor()
