@@ -70,6 +70,8 @@ struct ContentView: View {
     @State private var retryCount = 0
     @State private var isGrokThinking = false
     @State private var isCursorThinking = false
+    @State private var wakeupCountdown = 0
+    @State private var countdownTimer: Timer?
     @State private var isVoiceActivated = true // Auto voice detection
     @State private var silenceTimer: Timer?
     @State private var lastSpeechTime = Date()
@@ -680,11 +682,15 @@ struct ContentView: View {
         // Determine status message based on retry attempts
         if retryCount == 1 {
             connectionStatus = "Connecting..."
+            wakeupCountdown = 0
         } else if retryCount <= 10 {
-            connectionStatus = "Server waking up... (\(retryCount)/10)"
+            connectionStatus = "Server waking up..."
             isWakingUp = true
+            wakeupCountdown = 45 // 45 seconds for server wakeup
+            startWakeupCountdown()
         } else {
             connectionStatus = "Retrying connection..."
+            wakeupCountdown = 0
         }
         
         let url = URL(string: "wss://\(serverIP)/ws/phone")!
@@ -798,6 +804,29 @@ struct ContentView: View {
         let seconds = Int(timeInterval) % 60
         let tenths = Int((timeInterval * 10).truncatingRemainder(dividingBy: 10))
         return String(format: "%02d:%02d.%01d", minutes, seconds, tenths)
+    }
+    
+    private func startWakeupCountdown() {
+        stopWakeupCountdown() // Stop any existing countdown
+        
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            DispatchQueue.main.async {
+                if self.wakeupCountdown > 0 {
+                    self.wakeupCountdown -= 1
+                    self.connectionStatus = "Server waking up... (\(self.wakeupCountdown)s)"
+                } else {
+                    self.stopWakeupCountdown()
+                    if !self.isConnected {
+                        self.connectionStatus = "Still connecting..."
+                    }
+                }
+            }
+        }
+    }
+    
+    private func stopWakeupCountdown() {
+        countdownTimer?.invalidate()
+        countdownTimer = nil
     }
     
     private func requestPermissions() {
