@@ -84,7 +84,7 @@ struct ContentView: View {
     @State private var preventSelfListening = true // Prevent listening to own speech
     @State private var silenceTimer: Timer?
     @State private var lastSpeechTime = Date()
-    @State private var voiceThreshold: Float = 0.1 // Voice detection sensitivity
+    @State private var voiceThreshold: Float = 0.05 // 🔧 FIX: Lower threshold for better voice detection
     
     @State private var speechRecognizer: SFSpeechRecognizer?
     @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -589,6 +589,7 @@ struct ContentView: View {
                 let newText = result.bestTranscription.formattedString
                 DispatchQueue.main.async {
                     if !self.isRecording && self.shouldStartRecording(for: newText) {
+                        print("🚀 Starting recording for: '\(newText)'")
                         self.startRecording()
                     }
                     
@@ -596,7 +597,9 @@ struct ContentView: View {
                         self.transcribedText = newText
                         self.lastSpeechTime = Date()
                         self.resetSilenceTimer()
-                        print("🎤 Continuous: \(newText)")
+                        print("🎤 Recording: '\(newText)' (length: \(newText.count))")
+                    } else {
+                        print("🔍 Listening: '\(newText)' (not recording yet)")
                     }
                 }
             }
@@ -656,15 +659,18 @@ struct ContentView: View {
     }
     
     private func shouldStartRecording(for text: String) -> Bool {
-        // Start recording if we detect meaningful speech (more than just noise)
-        return text.count > 2 && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // 🔧 FIX: More lenient speech detection - start recording sooner
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedText.count > 1 && !trimmedText.isEmpty
     }
     
     private func resetSilenceTimer() {
         silenceTimer?.invalidate()
-        silenceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+        // 🔧 FIX: Increased silence timeout from 2.0s to 5.0s for longer speech
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
             DispatchQueue.main.async {
-                if self.isRecording && Date().timeIntervalSince(self.lastSpeechTime) > 1.5 {
+                // 🔧 FIX: Increased silence threshold from 1.5s to 3.0s
+                if self.isRecording && Date().timeIntervalSince(self.lastSpeechTime) > 3.0 {
                     print("🔇 Silence detected, stopping recording")
                     self.stopRecording()
                 }
