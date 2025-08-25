@@ -39,6 +39,7 @@ CURRENT_GROK_MODEL = "grok-2"
 # Debug: Log API key status (without revealing the key)
 if GROK_API_KEY:
     logger.info(f"✅ GROK_API_KEY loaded successfully (length: {len(GROK_API_KEY)})")
+    logger.info(f"🤖 Using Grok model: {CURRENT_GROK_MODEL}")
 else:
     logger.error("❌ GROK_API_KEY not found in environment variables")
 
