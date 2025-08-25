@@ -154,31 +154,38 @@ async def call_grok_api(message: str, context: str = "") -> str:
         {"role": "user", "content": message}
     ]
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            GROK_API_URL,
-            headers={
-                "Authorization": f"Bearer {GROK_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": CURRENT_GROK_MODEL,
-                "messages": history_messages,
-                "temperature": 0.7,
-                "max_tokens": 500
-            }
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                logger.error(f"API error: {response.status} - {error_text}")
-                return "Sorry, there was an error processing your request."
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                GROK_API_URL,
+                headers={
+                    "Authorization": f"Bearer {GROK_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": CURRENT_GROK_MODEL,
+                    "messages": history_messages,
+                    "temperature": 0.7,
+                    "max_tokens": 500
+                }
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"Grok API error: {response.status} - {error_text}")
+                    logger.error(f"Using model: {CURRENT_GROK_MODEL}")
+                    logger.error(f"API Key length: {len(GROK_API_KEY) if GROK_API_KEY else 0}")
+                    return "Sorry, there was an error processing your request."
 
-            data = await response.json()
-            if "choices" in data and data["choices"]:
-                return data["choices"][0]["message"]["content"].strip()
-            else:
-                logger.error("Invalid API response")
-                return "Sorry, I couldn't generate a response."
+                data = await response.json()
+                if "choices" in data and data["choices"]:
+                    return data["choices"][0]["message"]["content"].strip()
+                else:
+                    logger.error("Invalid API response")
+                    return "Sorry, I couldn't generate a response."
+    except Exception as e:
+        logger.error(f"Exception calling Grok API: {e}")
+        logger.error(f"Model: {CURRENT_GROK_MODEL}, API Key length: {len(GROK_API_KEY) if GROK_API_KEY else 0}")
+        return "Sorry, there was an error processing your request."
 
 
 def is_programming_question(content: str) -> bool:
