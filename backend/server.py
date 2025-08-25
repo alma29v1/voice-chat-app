@@ -276,6 +276,16 @@ async def websocket_cursor(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            
+            # SIMPLE DEBUG: Send raw message back to cursor
+            await manager.send_to_cursor({
+                "type": "message",
+                "sender": "debug",
+                "content": f"DEBUG: Received {data}",
+                "message_type": "text",
+                "timestamp": manager.get_timestamp()
+            })
+            
             message_data = json.loads(data)
             
             # Create message object
@@ -296,6 +306,15 @@ async def websocket_cursor(websocket: WebSocket):
                 "content": message.content,
                 "message_type": message.message_type,
                 "timestamp": message.timestamp
+            })
+            
+            # Send confirmation back to cursor
+            await manager.send_to_cursor({
+                "type": "message",
+                "sender": "debug",
+                "content": f"DEBUG: Sent to phone: {message.content}",
+                "message_type": "text",
+                "timestamp": manager.get_timestamp()
             })
                 
     except WebSocketDisconnect:
