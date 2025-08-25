@@ -360,7 +360,7 @@ What would you like me to do?`);
             
             const headers = {
                 'Content-Type': 'application/json',
-                'X-API-Key': 'YOUR_API_KEY_HERE' // Update with actual API key
+                'X-API-Key': 'xai-wQ6qJGFoJT8GSwJ7Uht3vYzVzDWNw1i7EewqHkVNRpJcgNkcGDZYQa8w9OjhMPJMaZZEg9Cqm4IqF3mJQ'
             };
             
             const response = await fetch(url, {
