@@ -49,6 +49,8 @@ struct Message: Identifiable, Codable {
     }
 }
 
+// Full replacement for ContentView to fix braces and structure
+
 struct ContentView: View {
     @State private var isRecording = false
     @State private var transcribedText = ""
@@ -58,75 +60,41 @@ struct ContentView: View {
     @State private var showingPermissionAlert = false
     @State private var permissionAlertMessage = ""
     
-    // WebSocket and conversation state
     @State private var webSocket: URLSessionWebSocketTask?
     @State private var isConnected = false
     @State private var messages: [Message] = []
-    @State private var serverIP = "347be302-059c-492a-90fa-6d7560469c87-00-2sc0ut3ttu7zz.riker.replit.dev" // Your cloud server
+    @State private var serverIP = "voice-chat-app-cc40.onrender.com"
     @State private var showingServerConfig = false
     @State private var connectionStatus = "Disconnected"
+    @State private var isWakingUp = false
+    @State private var retryCount = 0
+    @State private var isGrokThinking = false
+    @State private var isCursorThinking = false
+    @State private var isVoiceActivated = true // Auto voice detection
+    @State private var silenceTimer: Timer?
+    @State private var lastSpeechTime = Date()
+    @State private var voiceThreshold: Float = 0.1 // Voice detection sensitivity
     
-    // Speech recognition state
     @State private var speechRecognizer: SFSpeechRecognizer?
     @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     @State private var audioEngine: AVAudioEngine?
     
-    // Text-to-speech state
     @State private var speechSynthesizer = AVSpeechSynthesizer()
     @State private var isGrokSpeaking = false
     @State private var grokResponse = ""
     @State private var speechDelegate: SpeechDelegate?
     
-    // MARK: - Audio Session Setup
-    private func setupAudioSession() {
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            
-            // Configure for background audio playback
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [
-                .allowBluetooth, 
-                .allowBluetoothA2DP, 
-                .defaultToSpeaker, 
-                .mixWithOthers, 
-                .allowAirPlay
-            ])
-            
-            try audioSession.setActive(true)
-            
-            // Enable background audio capabilities
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [
-                .allowBluetooth, 
-                .allowBluetoothA2DP, 
-                .defaultToSpeaker, 
-                .mixWithOthers, 
-                .allowAirPlay
-            ])
-            
-            print("✅ Audio session configured for background playback")
-            
-        } catch {
-            print("❌ Failed to configure audio session: \(error)")
-        }
-    }
-    
     var body: some View {
         NavigationView {
             ZStack {
-                // Background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)]),
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
-        }
-        .navigationViewStyle(StackNavigationViewStyle())
-        .onAppear {
-            setupAudioSession()
-        }
                 
                 VStack(spacing: 0) {
-                    // Header with connection status - optimized for landscape
                     VStack(spacing: 10) {
                         HStack {
                             Button(action: { showingServerConfig = true }) {
@@ -148,7 +116,6 @@ struct ContentView: View {
                         }
                         .padding(.horizontal)
                         
-                        // Background Audio Indicator
                         HStack {
                             Image(systemName: "speaker.wave.3.fill")
                                 .foregroundColor(.green)
@@ -163,98 +130,88 @@ struct ContentView: View {
                         .background(Color.green.opacity(0.1))
                         .cornerRadius(8)
                         
-                        // Three-Way Connection Status - compact for landscape
                         HStack(spacing: 15) {
-                            // Phone/User Status
                             VStack(spacing: 8) {
                                 ZStack {
                                     Circle()
                                         .fill(isConnected ? Color.blue : Color.gray)
                                         .frame(width: 40, height: 40)
-                                    
                                     Image(systemName: "person.fill")
                                         .font(.title3)
                                         .foregroundColor(.white)
                                 }
-                                
                                 Text("You")
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                
                                 Text(isConnected ? "Connected" : "Disconnected")
                                     .font(.caption2)
                                     .foregroundColor(isConnected ? .green : .red)
                             }
                             
-                            // Connection Lines
                             VStack(spacing: 15) {
                                 Rectangle()
                                     .fill(isConnected ? Color.green : Color.gray)
                                     .frame(width: 2, height: 20)
-                                
                                 Rectangle()
                                     .fill(isConnected ? Color.green : Color.gray)
                                     .frame(width: 2, height: 20)
                             }
                             
-                            // Grok AI Status
                             VStack(spacing: 8) {
                                 ZStack {
                                     Circle()
-                                        .fill(isConnected ? Color.purple : Color.gray)
+                                        .fill(isGrokThinking ? Color.blue : (isConnected ? Color.purple : Color.gray))
                                         .frame(width: 40, height: 40)
-                                    
-                                    Image(systemName: "brain.head.profile")
+                                    Image(systemName: isGrokThinking ? "brain.head.profile.fill" : "brain.head.profile")
                                         .font(.title3)
                                         .foregroundColor(.white)
+                                        .opacity(isGrokThinking ? 0.6 : 1.0)
+                                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isGrokThinking)
                                 }
-                                
                                 Text("Grok AI")
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                
-                                Text(isConnected ? "Ready" : "Offline")
+                                Text(isGrokThinking ? "Thinking..." : 
+                                     (isConnected ? "Ready" : (isWakingUp ? "Waking up..." : "Offline")))
                                     .font(.caption2)
-                                    .foregroundColor(isConnected ? .green : .red)
+                                    .foregroundColor(isGrokThinking ? .blue : 
+                                                   (isConnected ? .green : (isWakingUp ? .orange : .red)))
                             }
                             
-                            // Connection Lines
                             VStack(spacing: 15) {
                                 Rectangle()
                                     .fill(isConnected ? Color.green : Color.gray)
                                     .frame(width: 2, height: 20)
-                                
                                 Rectangle()
                                     .fill(isConnected ? Color.green : Color.gray)
                                     .frame(width: 2, height: 20)
                             }
                             
-                            // Cursor AI Status
                             VStack(spacing: 8) {
                                 ZStack {
                                     Circle()
-                                        .fill(isConnected ? Color.green : Color.gray)
+                                        .fill(isCursorThinking ? Color.blue : (isConnected ? Color.green : Color.gray))
                                         .frame(width: 40, height: 40)
-                                    
-                                    Image(systemName: "cursorarrow.rays")
+                                    Image(systemName: isCursorThinking ? "cursorarrow.rays.fill" : "cursorarrow.rays")
                                         .font(.title3)
                                         .foregroundColor(.white)
+                                        .opacity(isCursorThinking ? 0.6 : 1.0)
+                                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isCursorThinking)
                                 }
-                                
                                 Text("Cursor AI")
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                
-                                Text(isConnected ? "Ready" : "Offline")
+                                Text(isCursorThinking ? "Thinking..." : 
+                                     (isConnected ? "Ready" : (isWakingUp ? "Waking up..." : "Offline")))
                                     .font(.caption2)
-                                    .foregroundColor(isConnected ? .green : .red)
+                                    .foregroundColor(isCursorThinking ? .blue : 
+                                                   (isConnected ? .green : (isWakingUp ? .orange : .red)))
                             }
                         }
                         .padding(.horizontal)
                     }
                     .padding(.top)
                     
-                    // Messages area
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(spacing: 12) {
@@ -274,22 +231,18 @@ struct ContentView: View {
                         }
                     }
                     
-                    // Recording area
                     VStack(spacing: 20) {
-                        // Conversation Status
                         if isRecording {
                             VStack(spacing: 8) {
                                 HStack {
                                     Image(systemName: "mic.fill")
                                         .foregroundColor(.red)
                                         .font(.title2)
-                                    
                                     Text("Recording...")
                                         .font(.headline)
                                         .foregroundColor(.red)
                                         .fontWeight(.semibold)
                                 }
-                                
                                 Text(timeString(from: recordingTime))
                                     .font(.title3)
                                     .fontWeight(.medium)
@@ -305,13 +258,11 @@ struct ContentView: View {
                                     Image(systemName: "brain.head.profile")
                                         .foregroundColor(.purple)
                                         .font(.title2)
-                                    
                                     Text("Grok AI is responding...")
                                         .font(.headline)
                                         .foregroundColor(.purple)
                                         .fontWeight(.semibold)
                                 }
-                                
                                 Text("Listening to Grok's response")
                                     .font(.caption)
                                     .foregroundColor(.purple)
@@ -326,13 +277,11 @@ struct ContentView: View {
                                     Image(systemName: "message.circle.fill")
                                         .foregroundColor(.blue)
                                         .font(.title2)
-                                    
                                     Text("Ready for conversation")
                                         .font(.headline)
                                         .foregroundColor(.blue)
                                         .fontWeight(.semibold)
                                 }
-                                
                                 Text("Tap to start talking")
                                     .font(.caption)
                                     .foregroundColor(.blue)
@@ -343,24 +292,31 @@ struct ContentView: View {
                             .cornerRadius(20)
                         }
                         
-                        // Main recording button
-                        Button(action: toggleRecording) {
-                            ZStack {
-                                Circle()
-                                    .fill(isRecording ? Color.red : (isGrokSpeaking ? Color.gray : Color.blue))
-                                    .frame(width: 100, height: 100)
-                                    .shadow(color: isRecording ? .red.opacity(0.4) : .blue.opacity(0.4), radius: 15, x: 0, y: 8)
-                                
-                                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                                    .font(.system(size: 40, weight: .medium))
-                                    .foregroundColor(.white)
+                        VStack(spacing: 15) {
+                            Button(action: toggleVoiceActivation) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isVoiceActivated ? (isRecording ? Color.red : Color.green) : Color.gray)
+                                        .frame(width: 100, height: 100)
+                                        .shadow(color: isVoiceActivated ? .green.opacity(0.4) : .gray.opacity(0.4), radius: 15, x: 0, y: 8)
+                                    
+                                    Image(systemName: isVoiceActivated ? (isRecording ? "waveform" : "ear") : "mic.slash")
+                                        .font(.system(size: 40, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .opacity(isRecording ? 0.7 : 1.0)
+                                        .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: isRecording)
+                                }
                             }
+                            .scaleEffect(isRecording ? 1.2 : 1.0)
+                            .animation(.easeInOut(duration: 0.3), value: isRecording)
+                            .disabled(!isConnected || isGrokSpeaking)
+                            
+                            Text(isVoiceActivated ? (isRecording ? "Listening..." : "Say something") : "Voice Detection Off")
+                                .font(.caption)
+                                .foregroundColor(isVoiceActivated ? .green : .gray)
+                                .multilineTextAlignment(.center)
                         }
-                        .scaleEffect(isRecording ? 1.2 : 1.0)
-                        .animation(.easeInOut(duration: 0.3), value: isRecording)
-                        .disabled(!isConnected || isGrokSpeaking)
                         
-                        // Show transcribed text while recording
                         if isRecording && !transcribedText.isEmpty {
                             VStack(spacing: 8) {
                                 Text("You're saying:")
@@ -379,30 +335,72 @@ struct ContentView: View {
                             }
                             .padding(.horizontal)
                         }
-                    }
-                    .padding()
+        }
+        .padding()
+                }
+            }
+            .alert("Permission Required", isPresented: $showingPermissionAlert) {
+                Button("OK") { }
+            } message: {
+                Text(permissionAlertMessage)
+            }
+            .sheet(isPresented: $showingServerConfig) {
+                ServerConfigView(serverIP: $serverIP, isConnected: $isConnected, connectionStatus: $connectionStatus)
+            }
+            .onAppear {
+                setupAudioSession()
+                connectToServer()
+                // Auto-start voice detection
+                if isVoiceActivated {
+                    startVoiceActivityDetection()
                 }
             }
         }
-        .alert("Permission Required", isPresented: $showingPermissionAlert) {
-            Button("OK") { }
-        } message: {
-            Text(permissionAlertMessage)
-        }
-        .sheet(isPresented: $showingServerConfig) {
-            ServerConfigView(serverIP: $serverIP, isConnected: $isConnected, connectionStatus: $connectionStatus)
-        }
-        .onAppear {
-            requestPermissions()
-            connectToServer()
+        .navigationViewStyle(StackNavigationViewStyle())
+    }
+    
+    private func setupAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [
+                .allowBluetooth,
+                .allowBluetoothA2DP,
+                .defaultToSpeaker,
+                .mixWithOthers,
+                .allowAirPlay
+            ])
+            
+            try audioSession.setActive(true)
+            
+            print("✅ Audio session configured for background playback")
+            
+        } catch {
+            print("❌ Failed to configure audio session: \(error)")
         }
     }
     
-    private func toggleRecording() {
+    private func toggleVoiceActivation() {
+        isVoiceActivated.toggle()
+        
+        if isVoiceActivated {
+            startVoiceActivityDetection()
+        } else {
+            stopVoiceActivityDetection()
+        }
+    }
+    
+    private func startVoiceActivityDetection() {
+        print("🎤 Starting voice activity detection")
+        setupAudioSession()
+        startContinuousListening()
+    }
+    
+    private func stopVoiceActivityDetection() {
+        print("🛑 Stopping voice activity detection")
+        stopContinuousListening()
         if isRecording {
             stopRecording()
-        } else {
-            startRecording()
         }
     }
     
@@ -412,12 +410,10 @@ struct ContentView: View {
         recordingTime = 0
         transcribedText = ""
         
-        // Start timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             recordingTime += 0.1
         }
         
-        // Start speech recognition
         startSpeechRecognition()
     }
     
@@ -427,15 +423,18 @@ struct ContentView: View {
         timer?.invalidate()
         timer = nil
         
-        // Stop speech recognition
         stopSpeechRecognition()
         
-        // Send transcribed text to server
+        print("🔍 Final transcribed text: '\(transcribedText)'")
+        
         if !transcribedText.isEmpty {
-            print("Sending message to server: \(transcribedText)")
+            print("📤 Sending message to server: \(transcribedText)")
+            
+            // Show that Grok is thinking
+            isGrokThinking = true
+            
             sendMessageToServer(transcribedText)
             
-            // Add user message to the conversation
             let userMessage = Message(
                 sender: "phone",
                 content: transcribedText,
@@ -444,94 +443,281 @@ struct ContentView: View {
             )
             messages.append(userMessage)
             
-            // Clear transcribed text
             transcribedText = ""
         }
     }
     
     private func startSpeechRecognition() {
-        // Initialize speech recognition
         let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         let request = SFSpeechAudioBufferRecognitionRequest()
+        let audioEngine = AVAudioEngine()
         
-        // Configure audio session
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            print("Audio session error: \(error)")
+            print("❌ Audio session error: \(error)")
+            return
         }
         
-        // Start recognition
+        let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+            request.append(buffer)
+        }
+        
+        request.shouldReportPartialResults = true
+        
         speechRecognizer?.recognitionTask(with: request) { result, error in
             if let result = result {
                 DispatchQueue.main.async {
                     self.transcribedText = result.bestTranscription.formattedString
+                    print("🎤 Transcribed: \(self.transcribedText)")
                 }
+            }
+            
+            if let error = error {
+                print("❌ Speech recognition error: \(error)")
             }
         }
         
-        // Store the recognizer for stopping later
+        audioEngine.prepare()
+        
+        do {
+            try audioEngine.start()
+            print("✅ Speech recognition started")
+        } catch {
+            print("❌ Audio engine start error: \(error)")
+        }
+        
         self.speechRecognizer = speechRecognizer
         self.recognitionRequest = request
+        self.audioEngine = audioEngine
     }
     
     private func stopSpeechRecognition() {
-        // Stop speech recognition
+        print("🛑 Stopping speech recognition")
+        
         recognitionRequest?.endAudio()
         audioEngine?.stop()
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        
         speechRecognizer = nil
+        recognitionRequest = nil
+        audioEngine = nil
+        
+        print("✅ Speech recognition stopped")
+    }
+    
+    private func startContinuousListening() {
+        guard !isRecording else { return }
+        
+        let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        let audioEngine = AVAudioEngine()
+        
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("❌ Audio session error: \(error)")
+            return
+        }
+        
+        let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+            request.append(buffer)
+            
+            // Voice activity detection
+            self.detectVoiceActivity(in: buffer)
+        }
+        
+        request.shouldReportPartialResults = true
+        
+        speechRecognizer?.recognitionTask(with: request) { result, error in
+            if let result = result {
+                let newText = result.bestTranscription.formattedString
+                DispatchQueue.main.async {
+                    if !self.isRecording && self.shouldStartRecording(for: newText) {
+                        self.startRecording()
+                    }
+                    
+                    if self.isRecording {
+                        self.transcribedText = newText
+                        self.lastSpeechTime = Date()
+                        self.resetSilenceTimer()
+                        print("🎤 Continuous: \(newText)")
+                    }
+                }
+            }
+            
+            if let error = error {
+                print("❌ Continuous speech error: \(error)")
+            }
+        }
+        
+        audioEngine.prepare()
+        
+        do {
+            try audioEngine.start()
+            print("✅ Continuous listening started")
+        } catch {
+            print("❌ Continuous audio engine error: \(error)")
+        }
+        
+        self.speechRecognizer = speechRecognizer
+        self.recognitionRequest = request
+        self.audioEngine = audioEngine
+    }
+    
+    private func stopContinuousListening() {
+        print("🛑 Stopping continuous listening")
+        
+        recognitionRequest?.endAudio()
+        audioEngine?.stop()
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        
+        speechRecognizer = nil
+        recognitionRequest = nil
+        audioEngine = nil
+        
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+    }
+    
+    private func detectVoiceActivity(in buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData?[0] else { return }
+        
+        let frameLength = Int(buffer.frameLength)
+        var sum: Float = 0
+        
+        for i in 0..<frameLength {
+            sum += abs(channelData[i])
+        }
+        
+        let averageAmplitude = sum / Float(frameLength)
+        
+        // If amplitude exceeds threshold, consider it voice activity
+        if averageAmplitude > voiceThreshold {
+            DispatchQueue.main.async {
+                self.lastSpeechTime = Date()
+            }
+        }
+    }
+    
+    private func shouldStartRecording(for text: String) -> Bool {
+        // Start recording if we detect meaningful speech (more than just noise)
+        return text.count > 2 && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    private func resetSilenceTimer() {
+        silenceTimer?.invalidate()
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+            DispatchQueue.main.async {
+                if self.isRecording && Date().timeIntervalSince(self.lastSpeechTime) > 1.5 {
+                    print("🔇 Silence detected, stopping recording")
+                    self.stopRecording()
+                }
+            }
+        }
     }
     
     private func speakGrokResponse(_ text: String) {
-        // Stop any current speech
         if speechSynthesizer.isSpeaking {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
         
-        // Create speech utterance
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = 0.5
         utterance.pitchMultiplier = 1.0
         utterance.volume = 0.8
         
-        // Create and store delegate
         speechDelegate = SpeechDelegate(isGrokSpeaking: $isGrokSpeaking)
         speechSynthesizer.delegate = speechDelegate
         
-        // Start speaking
         isGrokSpeaking = true
         speechSynthesizer.speak(utterance)
     }
     
     private func sendMessageToServer(_ content: String) {
+        guard isConnected else {
+            print("❌ Cannot send message: Not connected to server")
+            return
+        }
+        
         let message = [
             "content": content,
-            "type": "text"
+            "type": "text",
+            "sender": "phone"
         ]
+        
+        print("📦 Preparing message: \(message)")
         
         if let data = try? JSONSerialization.data(withJSONObject: message),
            let jsonString = String(data: data, encoding: .utf8) {
+            print("📡 Sending JSON: \(jsonString)")
             webSocket?.send(.string(jsonString)) { error in
                 if let error = error {
-                    print("Error sending message: \(error)")
+                    print("❌ Error sending message: \(error)")
+                } else {
+                    print("✅ Message sent successfully")
                 }
             }
+        } else {
+            print("❌ Failed to serialize message to JSON")
         }
     }
     
     private func connectToServer() {
+        retryCount += 1
+        
+        // Determine status message based on retry attempts
+        if retryCount == 1 {
+            connectionStatus = "Connecting..."
+        } else if retryCount <= 10 {
+            connectionStatus = "Server waking up... (\(retryCount)/10)"
+            isWakingUp = true
+        } else {
+            connectionStatus = "Retrying connection..."
+        }
+        
         let url = URL(string: "wss://\(serverIP)/ws/phone")!
         let session = URLSession(configuration: .default)
         webSocket = session.webSocketTask(with: url)
         
-        webSocket?.resume()
-        connectionStatus = "Connecting..."
+        print("🔗 Attempting WebSocket connection to: wss://\(serverIP)/ws/phone")
         
-        // Start receiving messages
+        // Start receiving before resuming
         receiveMessage()
+        
+        // Add connection state tracking
+        webSocket?.resume()
+        
+        print("🚀 WebSocket task resumed")
+        
+        // Check connection status with smart retry
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            if self.isConnected {
+                self.connectionStatus = "Connected"
+                self.isWakingUp = false
+                self.retryCount = 0
+                print("✅ WebSocket connection successful")
+            } else {
+                print("❌ WebSocket connection failed after 5 seconds")
+                // Retry with exponential backoff for hibernating servers
+                let delay = self.retryCount <= 10 ? 5.0 : 10.0 // 5s for wakeup, 10s for connection issues
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    self.connectToServer() // Retry automatically
+                }
+            }
+        }
     }
     
     private func receiveMessage() {
@@ -545,10 +731,30 @@ struct ContentView: View {
                         
                         DispatchQueue.main.async {
                             if messageData["type"] as? String == "system" {
-                                self.connectionStatus = "Connected"
-                                self.isConnected = true
+                                // Handle status messages
+                                if let content = messageData["content"] as? String {
+                                    if content.contains("Connected to ThreeWayChat") {
+                                        // Only set connected on the specific connection message
+                                        self.connectionStatus = "Connected"
+                                        self.isConnected = true
+                                        print("✅ Confirmed connection to server")
+                                    } else if content.contains("Grok thinking") {
+                                        self.isGrokThinking = true
+                                    } else if content.contains("Consulting Cursor") {
+                                        self.isCursorThinking = true
+                                    }
+                                }
+                                
                             } else if let sender = messageData["sender"] as? String,
                                       let content = messageData["content"] as? String {
+                                
+                                // Reset thinking states when we get actual responses
+                                if sender == "grok" {
+                                    self.isGrokThinking = false
+                                }
+                                if sender == "cursor" {
+                                    self.isCursorThinking = false
+                                }
                                 
                                 let message = Message(
                                     sender: sender,
@@ -558,7 +764,6 @@ struct ContentView: View {
                                 )
                                 self.messages.append(message)
                                 
-                                // If it's from Grok, speak the response
                                 if sender == "grok" {
                                     self.speakGrokResponse(content)
                                 }
@@ -571,7 +776,6 @@ struct ContentView: View {
                     break
                 }
                 
-                // Continue receiving messages
                 self.receiveMessage()
                 
             case .failure(let error):
@@ -579,7 +783,12 @@ struct ContentView: View {
                     self.connectionStatus = "Connection failed"
                     self.isConnected = false
                 }
-                print("WebSocket error: \(error)")
+                print("❌ WebSocket error: \(error)")
+                
+                // Trigger reconnection on error
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    self.connectToServer()
+                }
             }
         }
     }
@@ -592,7 +801,6 @@ struct ContentView: View {
     }
     
     private func requestPermissions() {
-        // Request microphone permission using the new API
         if #available(iOS 17.0, *) {
             AVAudioApplication.requestRecordPermission { granted in
                 DispatchQueue.main.async {
@@ -603,7 +811,6 @@ struct ContentView: View {
                 }
             }
         } else {
-            // Fallback for older iOS versions
             AVAudioSession.sharedInstance().requestRecordPermission { granted in
                 DispatchQueue.main.async {
                     if !granted {
@@ -614,7 +821,6 @@ struct ContentView: View {
             }
         }
         
-        // Request speech recognition permission
         SFSpeechRecognizer.requestAuthorization { status in
             DispatchQueue.main.async {
                 if status != .authorized {
@@ -753,7 +959,7 @@ struct ServerConfigView: View {
                         Image(systemName: isConnected ? "wifi" : "wifi.slash")
                             .foregroundColor(isConnected ? .green : .red)
                         Text(connectionStatus)
-                            .foregroundColor(isConnected ? .green : .red)
+                            .foregroundColor(isConnected ? .green : (connectionStatus.contains("waking") ? .orange : .red))
                     }
                 }
                 

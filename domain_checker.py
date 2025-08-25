@@ -67,7 +67,7 @@ class DomainChecker:
             with open(ios_file, 'r') as f:
                 content = f.read()
             
-            # Update the server IP
+            # Update the server IP - be more careful with regex
             import re
             pattern = r'@State private var serverIP = "[^"]*"'
             replacement = f'@State private var serverIP = "{domain}"'
@@ -75,12 +75,16 @@ class DomainChecker:
             if re.search(pattern, content):
                 new_content = re.sub(pattern, replacement, content)
                 
-                # Write the updated content
-                with open(ios_file, 'w') as f:
-                    f.write(new_content)
-                
-                print(f"✅ iOS app updated with new domain: {domain}")
-                return True
+                # Verify the file structure is still valid
+                if new_content.count('{') == new_content.count('}'):
+                    # Write the updated content
+                    with open(ios_file, 'w') as f:
+                        f.write(new_content)
+                    print(f"✅ iOS app updated with new domain: {domain}")
+                    return True
+                else:
+                    print("❌ File structure would be corrupted, skipping update")
+                    return False
             else:
                 print("❌ Could not find serverIP line in iOS file")
                 return False

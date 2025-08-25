@@ -23,7 +23,18 @@ logger = logging.getLogger(__name__)
 # Grok AI Configuration
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")  # Set via Render environment
 GROK_API_URL = "https://api.x.ai/v1/chat/completions"
-GROK_MODEL = "grok-2-1212"
+
+# Available Grok models with pricing info (hypothetical costs for reference)
+GROK_MODELS = {
+    "grok-2-mini": {"name": "Grok 2 Mini", "cost": "Cheapest", "speed": "Fastest"},
+    "grok-2": {"name": "Grok 2", "cost": "Medium", "speed": "Fast"},  
+    "grok-2-1212": {"name": "Grok 2 (Dec 2024)", "cost": "Medium", "speed": "Fast"},
+    "grok-beta": {"name": "Grok Beta", "cost": "Higher", "speed": "Medium"},
+    "grok-vision-beta": {"name": "Grok Vision", "cost": "Highest", "speed": "Slower"}
+}
+
+# Current model (can be changed via API)
+CURRENT_GROK_MODEL = "grok-2-1212"
 
 # Debug: Log API key status (without revealing the key)
 if GROK_API_KEY:
@@ -150,7 +161,7 @@ async def call_grok_api(message: str, context: str = "") -> str:
                 "Content-Type": "application/json"
             },
             json={
-                "model": GROK_MODEL,
+                "model": CURRENT_GROK_MODEL,
                 "messages": history_messages,
                 "temperature": 0.7,
                 "max_tokens": 500
@@ -425,6 +436,41 @@ async def get_conversation_history():
             }
             for msg in manager.knowledge_base
         ]
+    }
+
+
+@app.get("/models")
+async def get_available_models():
+    """Get available Grok models"""
+    return {
+        "models": GROK_MODELS,
+        "current": CURRENT_GROK_MODEL
+    }
+
+
+@app.post("/model")
+async def change_model(request: dict):
+    """Change the current Grok model"""
+    global CURRENT_GROK_MODEL
+    
+    new_model = request.get("model")
+    if new_model not in GROK_MODELS:
+        raise HTTPException(status_code=400, detail=f"Invalid model. Available: {list(GROK_MODELS.keys())}")
+    
+    CURRENT_GROK_MODEL = new_model
+    logger.info(f"🔄 Model changed to: {new_model}")
+    
+    # Broadcast model change to all connected clients
+    await manager.broadcast({
+        "type": "system",
+        "content": f"Grok model changed to {GROK_MODELS[new_model]['name']}",
+        "timestamp": manager.get_timestamp()
+    })
+    
+    return {
+        "success": True,
+        "model": new_model,
+        "info": GROK_MODELS[new_model]
     }
 
 if __name__ == "__main__":

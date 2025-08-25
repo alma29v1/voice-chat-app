@@ -1,0 +1,45 @@
+{
+  "name": "threeway-chat-cursor",
+  "displayName": "ThreeWay Chat - Cursor Integration",
+  "description": "Connect your Cursor windows to ThreeWay Chat voice conversation",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "threeway.connect",
+        "title": "Connect to ThreeWay Chat"
+      },
+      {
+        "command": "threeway.disconnect", 
+        "title": "Disconnect from ThreeWay Chat"
+      },
+      {
+        "command": "threeway.selectModel",
+        "title": "Select Grok Model"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "threeway.status",
+        "alignment": "right",
+        "priority": 100
+      }
+    ]
+  },
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
