@@ -65,6 +65,33 @@ class ConnectionManager:
             "key_points": [],
             "conversation_type": "general"  # general, debugging, coding, explanation
         }
+        
+        # Extended memory for comprehensive project knowledge
+        self.extended_memory = {
+            "project_states": {
+                "threeway_chat": {
+                    "current_issues": [],
+                    "recent_changes": [],
+                    "active_features": ["voice_control", "websocket_communication", "grok_integration"]
+                },
+                "big_beautiful": {
+                    "api_status": "configured",
+                    "available_functions": [],
+                    "last_interaction": None
+                },
+                "companion_app": {
+                    "api_status": "ready",
+                    "endpoints_used": [],
+                    "last_data_sync": None
+                }
+            },
+            "conversation_history": [],  # Long-term conversation memory
+            "technical_context": {
+                "recent_errors": [],
+                "solved_problems": [],
+                "active_debugging": None
+            }
+        }
 
     async def connect_phone(self, websocket: WebSocket):
         await websocket.accept()
@@ -128,6 +155,7 @@ class ConnectionManager:
         """Store message in knowledge base and update context"""
         self.knowledge_base.append(message)
         self.update_conversation_context(message)
+        self.update_extended_memory(message)  # Enhanced memory tracking
         logger.info(
             f"Added to knowledge base: {message.sender}: {message.content[:50]}...")
     
@@ -162,36 +190,123 @@ class ConnectionManager:
         self.conversation_context["key_points"] = self.conversation_context["key_points"][-10:]  # Last 10 keywords
     
     def get_smart_context_for_grok(self) -> str:
-        """Generate efficient context for Grok without excessive tokens"""
+        """Generate comprehensive context for Grok with full project knowledge"""
         ctx = self.conversation_context
         
         context_parts = [
-            "You are Grok in a three-way conversation with a user (phone) and Cursor AI (coding assistant)."
+            "You are Grok in a three-way conversation with a user (phone) and Cursor AI (coding assistant).",
+            "\n=== COMPLETE PROJECT ECOSYSTEM ===",
+            
+            "🎯 **ThreeWayChat App** (Current App):",
+            "- Voice-controlled iOS app with Swift/SwiftUI",
+            "- Real-time WebSocket communication via FastAPI server on Render",
+            "- Speech-to-text (SFSpeechRecognizer) and text-to-speech (AVSpeechSynthesizer)",
+            "- Voice Activity Detection (VAD) with automatic restart after responses",
+            "- Anti-feedback loop protection (headset mode)",
+            "- Smart context system for efficient conversation history",
+            "- Project switching capabilities between multiple programs",
+            "- Files: ContentView.swift, cloud_server.py, real_cursor_integration.js",
+            "- Server: voice-chat-app-cc40.onrender.com (FastAPI + WebSockets)",
+            
+            "🏢 **Big Beautiful Program** (Main Application):",
+            "- Primary business application with its own API server",
+            "- Has dedicated API endpoints and authentication system",
+            "- Integrated via voice commands through ThreeWayChat",
+            "- Can execute functions remotely via API calls",
+            "- Currently configurable in cursor integration",
+            
+            "📱 **Companion App** (Business Tool):",
+            "- Business management application on localhost:5001",
+            "- API Key: X authentication (xai-wQ6qJGFoJT8GSwJ7Uht3vYzVzDWNw1i7EewqHkVNRpJcgNkcGDZYQa8w9OjhMPJMaZZEg9Cqm4IqF3mJQ)",
+            "- Endpoints: /api/health, /api/contacts, /api/analytics",
+            "- Sales tracking: /api/rolling-sales, /api/rolling-sales/export",
+            "- Location services: /api/geocode, /api/att-fiber-check",
+            "- Data management: /api/sync, POST /api/contacts",
+            "- Full voice control via 'Switch to Companion App' command",
+            
+            "🔧 **Technical Architecture**:",
+            "- Cursor AI Integration: real_cursor_integration.js (Node.js WebSocket client)",
+            "- AI Models: Grok-4 (1000 tokens), Cursor AI (programming help)",
+            "- Voice Flow: Phone → Server → Grok/Cursor → Phone",
+            "- Project Management: Voice switching between all three programs",
+            "- API Integration: RESTful calls with formatted responses",
+            "- Smart Context: Conversation-aware, token-efficient system"
         ]
         
         # Add conversation type context
         if ctx["conversation_type"] == "debugging":
-            context_parts.append("This is a debugging session. Help solve code issues.")
+            context_parts.append("\n🐛 **Current Session**: Debugging - Help solve code issues across any project.")
         elif ctx["conversation_type"] == "coding":
-            context_parts.append("This is a coding discussion. Provide programming guidance.")
+            context_parts.append("\n💻 **Current Session**: Coding - Provide programming guidance for any project.")
         elif ctx["conversation_type"] == "explanation":
-            context_parts.append("This is an explanation session. Help clarify concepts.")
+            context_parts.append("\n📚 **Current Session**: Explanation - Help clarify concepts across the ecosystem.")
         
         # Add user's current question if available
         if ctx["user_question"]:
-            context_parts.append(f"User asked: {ctx['user_question']}")
+            context_parts.append(f"\n❓ **User Question**: {ctx['user_question']}")
         
         # Add what Cursor already said to avoid repetition
         if ctx["cursor_last_response"]:
-            context_parts.append(f"Cursor already responded: {ctx['cursor_last_response']}")
+            context_parts.append(f"\n🤖 **Cursor Response**: {ctx['cursor_last_response'][:300]}...")
             context_parts.append("Build on or complement Cursor's response, don't repeat it.")
         
         # Add key topics
         if ctx["key_points"]:
             recent_topics = list(set(ctx["key_points"][-5:]))  # Last 5 unique keywords
-            context_parts.append(f"Current topics: {', '.join(recent_topics)}")
+            context_parts.append(f"\n🔑 **Key Points**: {', '.join(recent_topics)}")
+        
+        context_parts.append("\n\n🎯 **Your Role**: Provide contextual help understanding the full ecosystem. Reference specific projects, APIs, and technical details when relevant.")
+        
+        # Add extended memory context
+        if self.extended_memory["technical_context"]["active_debugging"]:
+            context_parts.append(f"\n🔧 **Active Debug**: {self.extended_memory['technical_context']['active_debugging']}")
+        
+        if self.extended_memory["technical_context"]["recent_errors"]:
+            recent_errors = self.extended_memory["technical_context"]["recent_errors"][-2:]  # Last 2 errors
+            context_parts.append(f"\n⚠️ **Recent Issues**: {'; '.join(recent_errors)}")
+        
+        if self.extended_memory["technical_context"]["solved_problems"]:
+            solved = self.extended_memory["technical_context"]["solved_problems"][-2:]  # Last 2 solutions
+            context_parts.append(f"\n✅ **Recently Solved**: {'; '.join(solved)}")
         
         return " ".join(context_parts)
+    
+    def update_extended_memory(self, message: Message):
+        """Update extended memory with conversation insights"""
+        content_lower = message.content.lower()
+        
+        # Track errors and problems
+        if any(word in content_lower for word in ['error', 'bug', 'issue', 'problem', 'broken']):
+            error_summary = message.content[:100] + "..." if len(message.content) > 100 else message.content
+            self.extended_memory["technical_context"]["recent_errors"].append(error_summary)
+            self.extended_memory["technical_context"]["recent_errors"] = self.extended_memory["technical_context"]["recent_errors"][-5:]  # Keep last 5
+            
+            # Set active debugging if not already set
+            if not self.extended_memory["technical_context"]["active_debugging"]:
+                self.extended_memory["technical_context"]["active_debugging"] = error_summary
+        
+        # Track solutions
+        if any(word in content_lower for word in ['fixed', 'solved', 'working', 'resolved', 'success']):
+            if self.extended_memory["technical_context"]["active_debugging"]:
+                solution = f"Resolved: {self.extended_memory['technical_context']['active_debugging']}"
+                self.extended_memory["technical_context"]["solved_problems"].append(solution)
+                self.extended_memory["technical_context"]["solved_problems"] = self.extended_memory["technical_context"]["solved_problems"][-5:]  # Keep last 5
+                self.extended_memory["technical_context"]["active_debugging"] = None
+        
+        # Track project interactions
+        if 'companion app' in content_lower:
+            if 'api' in content_lower or any(endpoint in content_lower for endpoint in ['health', 'contacts', 'analytics', 'sales']):
+                import datetime
+                self.extended_memory["project_states"]["companion_app"]["last_interaction"] = datetime.datetime.now().isoformat()
+        
+        # Store in long-term conversation history (keep last 50 messages)
+        self.extended_memory["conversation_history"].append({
+            "sender": message.sender,
+            "content": message.content[:200],  # Truncate for memory efficiency
+            "timestamp": message.timestamp,
+            "type": getattr(message, 'message_type', 'text')
+        })
+        self.extended_memory["conversation_history"] = self.extended_memory["conversation_history"][-50:]
 
 
 # Initialize FastAPI app and connection manager
