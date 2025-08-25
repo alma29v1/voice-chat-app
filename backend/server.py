@@ -282,7 +282,9 @@ async def websocket_cursor(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            logger.info(f"Cursor websocket received raw data: {data}")
             message_data = json.loads(data)
+            logger.info(f"Cursor websocket parsed message_data: {message_data}")
             
             # Create message object
             message = Message(
@@ -291,6 +293,7 @@ async def websocket_cursor(websocket: WebSocket):
                 message_type=message_data.get("type", "text"),
                 timestamp=manager.get_timestamp()
             )
+            logger.info(f"Created cursor message object: {message.content}")
             
             # Add to knowledge base
             manager.add_to_knowledge_base(message)
