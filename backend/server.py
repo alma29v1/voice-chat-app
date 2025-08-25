@@ -63,12 +63,18 @@ class ConnectionManager:
         logger.info("Cursor disconnected")
         
     async def send_to_phone(self, message: dict):
+        logger.info(f"send_to_phone called with message: {message}")
+        logger.info(f"phone_connection is None: {self.phone_connection is None}")
         if self.phone_connection:
             try:
+                logger.info("Attempting to send message to phone...")
                 await self.phone_connection.send_text(json.dumps(message))
+                logger.info("Message sent to phone successfully")
             except Exception as e:
                 logger.error(f"Error sending to phone: {e}")
                 await self.disconnect_phone()
+        else:
+            logger.warning("No phone connection available")
                 
     async def send_to_cursor(self, message: dict):
         if self.cursor_connection:
