@@ -368,14 +368,8 @@ async def websocket_cursor(websocket: WebSocket):
             # Add to knowledge base
             manager.add_to_knowledge_base(message)
 
-            # Broadcast to phone
-            await manager.send_to_phone({
-                "type": "message",
-                "sender": "cursor",
-                "content": message.content,
-                "message_type": message.message_type,
-                "timestamp": message.timestamp
-            })
+            # DON'T broadcast Cursor responses to phone - only Grok talks to user
+            # Cursor responses are only for Grok to see and summarize
 
             # Check if it's a programming question and route to Grok
             if is_programming_question(message.content):
