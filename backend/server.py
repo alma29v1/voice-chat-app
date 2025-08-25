@@ -272,26 +272,31 @@ async def websocket_phone(websocket: WebSocket):
 @app.websocket("/ws/cursor")
 async def websocket_cursor(websocket: WebSocket):
     """WebSocket endpoint for cursor connection"""
-    logger.info("🚀 CURSOR WEBSOCKET ENDPOINT HIT!")
     await manager.connect_cursor(websocket)
-    logger.info("🔗 CURSOR CONNECTED TO MANAGER")
     try:
         while True:
-            logger.info("📥 CURSOR WAITING FOR MESSAGE...")
             data = await websocket.receive_text()
-            logger.info(f"📨 CURSOR RECEIVED DATA: {data}")
             message_data = json.loads(data)
-            logger.info(f"📋 CURSOR PARSED JSON: {message_data}")
             
-            # MINIMAL TEST: Just echo back immediately
-            await manager.send_to_cursor({
+            # Create message object
+            message = Message(
+                sender="cursor",
+                content=message_data.get("content", ""),
+                message_type=message_data.get("type", "text"),
+                timestamp=manager.get_timestamp()
+            )
+            
+            # Add to knowledge base
+            manager.add_to_knowledge_base(message)
+            
+            # Send cursor message to phone
+            await manager.send_to_phone({
                 "type": "message",
-                "sender": "cursor_echo",
-                "content": f"ECHO: {message_data.get('content', 'NO_CONTENT')}",
-                "message_type": "text",
-                "timestamp": manager.get_timestamp()
+                "sender": "cursor",
+                "content": message.content,
+                "message_type": message.message_type,
+                "timestamp": message.timestamp
             })
-            logger.info("✅ CURSOR ECHO SENT")
                 
     except WebSocketDisconnect:
         await manager.disconnect_cursor()
